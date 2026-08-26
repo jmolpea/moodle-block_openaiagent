@@ -1,0 +1,322 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<XMLDB PATH="blocks/openaiagent/db" VERSION="20260801" COMMENT="XMLDB file for Moodle blocks/openaiagent"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
+>
+  <TABLES>
+    <TABLE NAME="block_openaiagent_usage" COMMENT="Tracks user conversation usage for rate limiting">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="User ID"/>
+        <FIELD NAME="blockid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Block instance ID"/>
+        <FIELD NAME="conversationcount" TYPE="int" LENGTH="5" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Number of conversations started"/>
+        <FIELD NAME="daterecorded" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Date (as timestamp at midnight)"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Time record was created"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Time record was last modified"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="userid" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="userid_blockid_date" UNIQUE="true" FIELDS="userid, blockid, daterecorded" COMMENT="Unique index for user, block, and date"/>
+      </INDEXES>
+    </TABLE>
+  
+    <TABLE NAME="block_openaiagent_filetext" COMMENT="Persistent index of extracted text for course files (PDF/text)">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="fileid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="contenthash" TYPE="char" LENGTH="40" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="mimetype" TYPE="char" LENGTH="120" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="filesize" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0"/>
+        <FIELD NAME="status" TYPE="int" LENGTH="2" NOTNULL="true" SEQUENCE="false" DEFAULT="0"/>
+        <FIELD NAME="charcount" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0"/>
+        <FIELD NAME="pagecount" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0"/>
+        <FIELD NAME="errormsg" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="extractedtext" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0"/>
+        <FIELD NAME="timeindexed" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="contenthash_uq" TYPE="unique" FIELDS="contenthash"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="status_ix" UNIQUE="false" FIELDS="status"/>
+        <INDEX NAME="fileid_ix" UNIQUE="false" FIELDS="fileid"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="block_openaiagent_agents" COMMENT="Reusable agent definitions (router/tutor/assistant/ambiguity)">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="name" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false" COMMENT="Human-readable agent name"/>
+        <FIELD NAME="agenttype" TYPE="char" LENGTH="20" NOTNULL="true" SEQUENCE="false" DEFAULT="tutor" COMMENT="router|tutor|assistant|ambiguity"/>
+        <FIELD NAME="description" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Admin description"/>
+        <FIELD NAME="baseprompt" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Base system prompt"/>
+        <FIELD NAME="defaultmodel" TYPE="char" LENGTH="100" NOTNULL="true" SEQUENCE="false" COMMENT="Default model id"/>
+        <FIELD NAME="temperature" TYPE="number" LENGTH="4" DECIMALS="2" NOTNULL="true" SEQUENCE="false" DEFAULT="0.20" COMMENT="Sampling temperature"/>
+        <FIELD NAME="maxoutputtokens" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="1000" COMMENT="Max output tokens"/>
+        <FIELD NAME="enabled" TYPE="int" LENGTH="1" NOTNULL="true" SEQUENCE="false" DEFAULT="1" COMMENT="Enabled flag"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0"/>
+        <FIELD NAME="usermodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="agenttype_ix" UNIQUE="false" FIELDS="agenttype"/>
+        <INDEX NAME="enabled_ix" UNIQUE="false" FIELDS="enabled"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="block_openaiagent_courseconfig" COMMENT="Per-course assistant configuration">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Course id"/>
+        <FIELD NAME="blockinstanceid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0" COMMENT="Owning block instance id (0 = course-wide default / legacy)"/>
+        <FIELD NAME="enabled" TYPE="int" LENGTH="1" NOTNULL="true" SEQUENCE="false" DEFAULT="0" COMMENT="Assistant enabled for this course"/>
+        <FIELD NAME="tutorenabled" TYPE="int" LENGTH="1" NOTNULL="true" SEQUENCE="false" DEFAULT="1" COMMENT="Whether the tutor agent is enabled"/>
+        <FIELD NAME="assistantenabled" TYPE="int" LENGTH="1" NOTNULL="true" SEQUENCE="false" DEFAULT="1" COMMENT="Whether the platform assistant agent is enabled"/>
+        <FIELD NAME="routeragentid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0" COMMENT="Router agent id"/>
+        <FIELD NAME="tutoragentid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0" COMMENT="Tutor agent id"/>
+        <FIELD NAME="assistantagentid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0" COMMENT="Assistant agent id"/>
+        <FIELD NAME="ambiguityagentid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0" COMMENT="Ambiguity agent id"/>
+        <FIELD NAME="courseprompt" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Course-specific tutor prompt"/>
+        <FIELD NAME="assistantprompt" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Per-course assistant system prompt"/>
+        <FIELD NAME="assistantfaqs" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Per-course assistant FAQ content (plain text)"/>
+        <FIELD NAME="routerprompt" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Per-course router (intent classifier) system prompt"/>
+        <FIELD NAME="modeloverride" TYPE="char" LENGTH="100" NOTNULL="false" SEQUENCE="false" COMMENT="Model override"/>
+        <FIELD NAME="temperatureoverride" TYPE="number" LENGTH="4" DECIMALS="2" NOTNULL="false" SEQUENCE="false" COMMENT="Temperature override"/>
+        <FIELD NAME="maxoutputtokensoverride" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Max output tokens override"/>
+        <FIELD NAME="languagepolicy" TYPE="char" LENGTH="100" NOTNULL="true" SEQUENCE="false" DEFAULT="auto" COMMENT="Language policy"/>
+        <FIELD NAME="evaluationpolicy" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Evaluation/assessment blocking rules"/>
+        <FIELD NAME="citabledocuments" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Citable document names (one per line)"/>
+        <FIELD NAME="internaldocuments" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Internal non-citable document names (one per line)"/>
+        <FIELD NAME="protectedactivities" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Protected activity names (one per line)"/>
+        <FIELD NAME="fallbacknoinfo" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Fallback text when documents lack the information"/>
+        <FIELD NAME="fallbackoutofscope" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Fallback text for out-of-scope queries"/>
+        <FIELD NAME="fallbackevaluationblock" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Fallback text when evaluation blocking applies"/>
+        <FIELD NAME="storeconversations" TYPE="int" LENGTH="1" NOTNULL="true" SEQUENCE="false" DEFAULT="1" COMMENT="Conversation storage mode"/>
+        <FIELD NAME="supportmode" TYPE="char" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="inherit" COMMENT="Support escalation for this profile: inherit|on|off"/>
+        <FIELD NAME="supportemailto" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Destination addresses. Empty inherits the site value. Protected by managesupportrecipient"/>
+        <FIELD NAME="supportemailcc" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Copy addresses. Empty inherits the site value. Protected by managesupportrecipient"/>
+        <FIELD NAME="supportcategorymap" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Optional category to recipient map, one per line. Protected by managesupportrecipient"/>
+        <FIELD NAME="supportsubject" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Subject template. Empty inherits the site value"/>
+        <FIELD NAME="supportbody" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Body template. Empty inherits the site value"/>
+        <FIELD NAME="supportsignature" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Signature. Empty inherits the site value"/>
+        <FIELD NAME="supportslatext" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Expected response time announced to the participant. Empty inherits the site value"/>
+        <FIELD NAME="supportincludetranscript" TYPE="int" LENGTH="2" NOTNULL="true" SEQUENCE="false" DEFAULT="-1" COMMENT="Include the transcript: -1 inherit, 0 no, 1 yes"/>
+        <FIELD NAME="supportcopytouser" TYPE="int" LENGTH="2" NOTNULL="true" SEQUENCE="false" DEFAULT="-1" COMMENT="Copy the participant: -1 inherit, 0 no, 1 yes"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0"/>
+        <FIELD NAME="usermodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="courseid" TYPE="foreign" FIELDS="courseid" REFTABLE="course" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="course_block_uq" UNIQUE="true" FIELDS="courseid, blockinstanceid"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="block_openaiagent_coursetools" COMMENT="Per-course enabled MCP tools">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Course id"/>
+        <FIELD NAME="blockinstanceid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0" COMMENT="Owning block instance id (0 = course-wide default / legacy)"/>
+        <FIELD NAME="toolname" TYPE="char" LENGTH="100" NOTNULL="true" SEQUENCE="false" COMMENT="MCP tool name"/>
+        <FIELD NAME="enabled" TYPE="int" LENGTH="1" NOTNULL="true" SEQUENCE="false" DEFAULT="1" COMMENT="Enabled flag"/>
+        <FIELD NAME="requirescapability" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false" COMMENT="Capability required to use this tool"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0"/>
+        <FIELD NAME="usermodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="courseid" TYPE="foreign" FIELDS="courseid" REFTABLE="course" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="course_block_tool_uq" UNIQUE="true" FIELDS="courseid, blockinstanceid, toolname"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="block_openaiagent_conversations" COMMENT="Conversation state per user and course">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Course id"/>
+        <FIELD NAME="blockinstanceid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0" COMMENT="Owning block instance id (0 = course-wide default / legacy)"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="User id"/>
+        <FIELD NAME="currentintent" TYPE="char" LENGTH="20" NOTNULL="true" SEQUENCE="false" COMMENT="tutor|assistant|ambiguous"/>
+        <FIELD NAME="activeagentid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0" COMMENT="Active agent id"/>
+        <FIELD NAME="lastresponseid" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false" COMMENT="Last OpenAI response id"/>
+        <FIELD NAME="conversationsummary" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Running conversation summary"/>
+        <FIELD NAME="lastuserrequest" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Last user request"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="courseid" TYPE="foreign" FIELDS="courseid" REFTABLE="course" REFFIELDS="id"/>
+        <KEY NAME="userid" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="course_block_user_ix" UNIQUE="false" FIELDS="courseid, blockinstanceid, userid"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="block_openaiagent_messages" COMMENT="Stored conversation messages">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="conversationid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Conversation id"/>
+        <FIELD NAME="role" TYPE="char" LENGTH="20" NOTNULL="true" SEQUENCE="false" DEFAULT="user" COMMENT="user|assistant|system|tool"/>
+        <FIELD NAME="content" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Message content (subject to log settings)"/>
+        <FIELD NAME="route" TYPE="char" LENGTH="20" NOTNULL="true" SEQUENCE="false" COMMENT="Resolved route/intent"/>
+        <FIELD NAME="agentid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0" COMMENT="Agent id that produced the message"/>
+        <FIELD NAME="model" TYPE="char" LENGTH="100" NOTNULL="true" SEQUENCE="false" COMMENT="Model actually called for this turn"/>
+        <FIELD NAME="openairesponseid" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false" COMMENT="OpenAI response id"/>
+        <FIELD NAME="prompttokens" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0"/>
+        <FIELD NAME="cachedtokens" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0" COMMENT="Prompt tokens served from the provider cache (subset of prompttokens)"/>
+        <FIELD NAME="completiontokens" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0"/>
+        <FIELD NAME="totaltokens" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0"/>
+        <FIELD NAME="errormessage" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Error message if the turn failed"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="conversationid" TYPE="foreign" FIELDS="conversationid" REFTABLE="block_openaiagent_conversations" REFFIELDS="id"/>
+      </KEYS>
+    </TABLE>
+
+    <TABLE NAME="block_openaiagent_chunks" COMMENT="Knowledge-base chunks (with embeddings) for local tutor retrieval">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Course id"/>
+        <FIELD NAME="blockinstanceid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0" COMMENT="Owning block instance id (0 = course-wide default / legacy)"/>
+        <FIELD NAME="contenthash" TYPE="char" LENGTH="40" NOTNULL="true" SEQUENCE="false" COMMENT="Source file content hash"/>
+        <FIELD NAME="filename" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false" COMMENT="Source file name"/>
+        <FIELD NAME="citable" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="1 = tutor may cite this document"/>
+        <FIELD NAME="chunkindex" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Chunk position within the document"/>
+        <FIELD NAME="content" TYPE="text" NOTNULL="true" SEQUENCE="false" COMMENT="Chunk text"/>
+        <FIELD NAME="embedding" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="JSON-encoded embedding vector"/>
+        <FIELD NAME="embeddingmodel" TYPE="char" LENGTH="100" NOTNULL="true" SEQUENCE="false" COMMENT="Model that produced the embedding"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="courseid" TYPE="foreign" FIELDS="courseid" REFTABLE="course" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="course_block_hash_ix" UNIQUE="false" FIELDS="courseid, blockinstanceid, contenthash"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="block_openaiagent_msgstats" COMMENT="Daily pre-aggregated message facts for the analytics dashboard">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Course id"/>
+        <FIELD NAME="blockinstanceid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0" COMMENT="Owning block instance id (0 = course-wide default / legacy)"/>
+        <FIELD NAME="daterecorded" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Local-midnight timestamp of the day bucket"/>
+        <FIELD NAME="role" TYPE="char" LENGTH="20" NOTNULL="true" SEQUENCE="false" COMMENT="user|assistant|system|tool"/>
+        <FIELD NAME="route" TYPE="char" LENGTH="20" NOTNULL="true" SEQUENCE="false" COMMENT="Resolved route/intent (assistant rows)"/>
+        <FIELD NAME="agentid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0" COMMENT="Agent id that produced the messages"/>
+        <FIELD NAME="model" TYPE="char" LENGTH="100" NOTNULL="true" SEQUENCE="false" COMMENT="Model actually called (empty = unknown/legacy rows)"/>
+        <FIELD NAME="nummessages" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0"/>
+        <FIELD NAME="numerrors" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0"/>
+        <FIELD NAME="prompttokens" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0"/>
+        <FIELD NAME="cachedtokens" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0" COMMENT="Prompt tokens served from the provider cache (subset of prompttokens)"/>
+        <FIELD NAME="completiontokens" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0"/>
+        <FIELD NAME="totaltokens" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="courseid" TYPE="foreign" FIELDS="courseid" REFTABLE="course" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="date_ix" UNIQUE="false" FIELDS="daterecorded"/>
+        <INDEX NAME="course_date_ix" UNIQUE="false" FIELDS="courseid, daterecorded"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="block_openaiagent_userstats" COMMENT="Per-user-per-day presence for distinct-user and recurrence analytics">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Course id"/>
+        <FIELD NAME="blockinstanceid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0" COMMENT="Owning block instance id (0 = course-wide default / legacy)"/>
+        <FIELD NAME="daterecorded" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Local-midnight timestamp of the day bucket"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="User id"/>
+        <FIELD NAME="numquestions" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="courseid" TYPE="foreign" FIELDS="courseid" REFTABLE="course" REFFIELDS="id"/>
+        <KEY NAME="userid" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="date_ix" UNIQUE="false" FIELDS="daterecorded"/>
+        <INDEX NAME="course_date_ix" UNIQUE="false" FIELDS="courseid, daterecorded"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="block_openaiagent_toolstats" COMMENT="Daily pre-aggregated MCP tool-call facts for the analytics dashboard">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0" COMMENT="Course id (0 = system context)"/>
+        <FIELD NAME="daterecorded" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Local-midnight timestamp of the day bucket"/>
+        <FIELD NAME="toolname" TYPE="char" LENGTH="100" NOTNULL="true" SEQUENCE="false" COMMENT="MCP tool name"/>
+        <FIELD NAME="numcalls" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0"/>
+        <FIELD NAME="numok" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0"/>
+        <FIELD NAME="numfail" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="date_ix" UNIQUE="false" FIELDS="daterecorded"/>
+        <INDEX NAME="course_date_ix" UNIQUE="false" FIELDS="courseid, daterecorded"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="block_openaiagent_supportreq" COMMENT="Support escalation requests raised from the assistant chat">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Course the request was raised from"/>
+        <FIELD NAME="blockinstanceid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0" COMMENT="Owning block instance id (0 = course-wide default / legacy)"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Participant who raised the request"/>
+        <FIELD NAME="conversationid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0" COMMENT="Conversation the request came from, for the transcript"/>
+        <FIELD NAME="category" TYPE="char" LENGTH="20" NOTNULL="true" SEQUENCE="false" DEFAULT="otro" COMMENT="tecnico|academico|acceso|evaluacion|otro"/>
+        <FIELD NAME="summary" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Incident summary drafted by the model. Never contains personal data beyond what the participant typed"/>
+        <FIELD NAME="summaryhash" TYPE="char" LENGTH="40" NOTNULL="true" SEQUENCE="false" COMMENT="SHA-1 of the normalized summary, for deduplication"/>
+        <FIELD NAME="status" TYPE="char" LENGTH="20" NOTNULL="true" SEQUENCE="false" DEFAULT="draft" COMMENT="draft|queued|sent|failed|cancelled|expired"/>
+        <FIELD NAME="token" TYPE="char" LENGTH="64" NOTNULL="true" SEQUENCE="false" COMMENT="Single-use confirmation token"/>
+        <FIELD NAME="tokenexpiry" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0" COMMENT="Token expiry timestamp"/>
+        <FIELD NAME="ticketref" TYPE="char" LENGTH="40" NOTNULL="true" SEQUENCE="false" COMMENT="Human-readable reference shown to the participant (OA-courseid-id)"/>
+        <FIELD NAME="recipients" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Addresses actually used at send time, for auditing"/>
+        <FIELD NAME="attempts" TYPE="int" LENGTH="5" NOTNULL="true" SEQUENCE="false" DEFAULT="0" COMMENT="Delivery attempts made so far"/>
+        <FIELD NAME="errormsg" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Last delivery error"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0"/>
+        <FIELD NAME="timesent" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0" COMMENT="When the mailer accepted the message (not proof of delivery)"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="courseid" TYPE="foreign" FIELDS="courseid" REFTABLE="course" REFFIELDS="id"/>
+        <KEY NAME="userid" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="token_ix" UNIQUE="false" FIELDS="token" COMMENT="Confirmation token lookup. Deliberately not unique: the token is random and single use is enforced by status, so blanking a consumed token must not risk a collision"/>
+        <INDEX NAME="user_course_time_ix" UNIQUE="false" FIELDS="userid, courseid, timecreated" COMMENT="Per-user quota and cooldown windows"/>
+        <INDEX NAME="course_time_ix" UNIQUE="false" FIELDS="courseid, timecreated" COMMENT="Per-course ceiling and circuit breaker"/>
+        <INDEX NAME="status_ix" UNIQUE="false" FIELDS="status" COMMENT="Digest batching and expiry purge"/>
+        <INDEX NAME="hash_user_ix" UNIQUE="false" FIELDS="summaryhash, userid" COMMENT="Deduplication of repeated requests"/>
+        <INDEX NAME="conversation_ix" UNIQUE="false" FIELDS="conversationid" COMMENT="Pending-draft check and in-chat status"/>
+      </INDEXES>
+    </TABLE>
+
+  </TABLES>
+</XMLDB>

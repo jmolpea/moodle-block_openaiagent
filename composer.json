@@ -1,0 +1,22 @@
+{
+  "name": "rsmax/block_openaiagent",
+  "description": "Moodle block plugin: multi-agent course assistant with document-grounded tutoring and support escalation.",
+  "type": "moodle-block",
+  "license": "GPL-3.0-or-later",
+  "require": {
+    "smalot/pdfparser": "^2.12",
+    "symfony/polyfill-mbstring": "^1.18"
+  },
+  "config": {
+    "optimize-autoloader": true,
+    "preferred-install": "dist",
+    "sort-packages": true
+  },
+  "authors": [
+    {
+      "name": "RSMAX Consulting SL",
+      "email": "julio@rsmax.es",
+      "homepage": "https://pluginia.es"
+    }
+  ]
+}

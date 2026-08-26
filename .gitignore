@@ -1,0 +1,13 @@
+# The licence signing key and the tool that uses it must never be committed.
+license_private.key
+generate_license.php
+
+# Built distribution archives.
+/block_openaiagent_*.zip
+
+# Local tooling and scratch files.
+.claude/
+.gstack/
+_prompt_dump.txt
+.phpunit.result.cache
+node_modules/

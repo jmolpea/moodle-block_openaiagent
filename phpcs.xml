@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ruleset name="block_openaiagent">
+    <description>PHP_CodeSniffer configuration for block_openaiagent. Excludes third-party Composer dependencies.</description>
+
+    <!-- Exclude Composer vendor directory — third-party code, not subject to Moodle coding standards. -->
+    <exclude-pattern>*/vendor/*</exclude-pattern>
+
+    <!-- Pass-through index files: they require config.php (not MOODLE_INTERNAL) and delegate to the real handler. -->
+    <exclude-pattern>*/mcp/v1/tools/call/index.php</exclude-pattern>
+    <exclude-pattern>*/mcp/v1/tools/list/index.php</exclude-pattern>
+</ruleset>

@@ -1,0 +1,183 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template block_openaiagent/block
+
+    Block content template.
+
+    Context variables required for this template:
+    * blockid - Block instance ID
+    * courseid - Course ID the block lives in
+    * botname - Name of the assistant
+    * welcomemessage - Welcome message (shown inside the chat)
+    * cardsubtitle - Short subtitle shown on the card
+    * avatarurl - Optional URL for avatar image/GIF
+    * str_greeting - Pre-formatted "Hi, firstname!" string
+    * str_openchat - Open chat button text
+    * str_closechat - Close chat button text
+    * str_newconversation - New conversation button text
+    * str_typemessage - Input placeholder text
+    * str_sendmessage - Send button label
+
+    Example context (json):
+    {
+        "blockid": 42,
+        "courseid": 7,
+        "botname": "Ana",
+        "welcomemessage": "Ask me about the course material or about your own progress.",
+        "cardsubtitle": "Course assistant",
+        "avatarurl": "",
+        "str_greeting": "Hi, Marta!",
+        "str_openchat": "Open chat",
+        "str_closechat": "Close chat",
+        "str_newconversation": "New conversation",
+        "str_typemessage": "Type your message",
+        "str_sendmessage": "Send"
+    }
+}}
+<div class="openaiagent-container" data-blockid="{{blockid}}" data-courseid="{{courseid}}">
+
+    {{! ── Card (trigger area) ── }}
+    <div class="openaiagent-card">
+
+        {{! Avatar with animated rainbow ring }}
+        <div class="openaiagent-avatar-ring" aria-hidden="true">
+            <div class="openaiagent-avatar-inner">
+                {{#avatarurl}}
+                <img src="{{avatarurl}}" class="openaiagent-avatar-gif" alt="">
+                {{/avatarurl}}
+                {{^avatarurl}}
+                <div class="openaiagent-avatar-default">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="52" height="52" viewBox="0 0 24 24" fill="none">
+                        <path d="M12 2L13.09 8.26L19 6L14.74 10.74L21 12L14.74 13.26L19 18L13.09 15.74L12 22L10.91 15.74L5 18L9.26 13.26L3 12L9.26 10.74L5 6L10.91 8.26L12 2Z" fill="white"/>
+                        <circle cx="19.5" cy="3.5" r="1.2" fill="white" opacity="0.7"/>
+                        <circle cx="4.5" cy="19.5" r="0.9" fill="white" opacity="0.5"/>
+                    </svg>
+                </div>
+                {{/avatarurl}}
+            </div>
+        </div>
+
+        {{! Greeting & subtitle }}
+        <div class="openaiagent-card-body">
+            <p class="openaiagent-card-greeting">{{str_greeting}}</p>
+            <p class="openaiagent-card-subtitle">{{cardsubtitle}}</p>
+        </div>
+
+        {{! Open chat button }}
+        <button type="button"
+                id="openaiagent-trigger-{{blockid}}"
+                class="openaiagent-trigger-btn"
+                aria-label="{{str_openchat}}">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            </svg>
+            {{str_openchat}}
+        </button>
+
+    </div>{{! end .openaiagent-card }}
+
+    {{! ── Chat Modal ── }}
+    <div id="openaiagent-modal-{{blockid}}"
+         class="openaiagent-modal"
+         role="dialog"
+         aria-labelledby="openaiagent-title-{{blockid}}"
+         aria-hidden="true">
+        <div class="openaiagent-modal-content">
+
+            {{! Header }}
+            <div class="openaiagent-header">
+                <div class="openaiagent-header-info">
+                    <div class="openaiagent-header-avatar" aria-hidden="true">
+                        {{#avatarurl}}
+                        <img src="{{avatarurl}}" alt="" class="openaiagent-header-avatar-img">
+                        {{/avatarurl}}
+                        {{^avatarurl}}
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                            <path d="M12 2L13.09 8.26L19 6L14.74 10.74L21 12L14.74 13.26L19 18L13.09 15.74L12 22L10.91 15.74L5 18L9.26 13.26L3 12L9.26 10.74L5 6L10.91 8.26L12 2Z" fill="white"/>
+                        </svg>
+                        {{/avatarurl}}
+                    </div>
+                    <div class="openaiagent-header-text">
+                        <h4 id="openaiagent-title-{{blockid}}" class="openaiagent-title">{{botname}}</h4>
+                        <span class="openaiagent-status">
+                            <span class="openaiagent-status-dot" aria-hidden="true"></span>
+                            Online
+                        </span>
+                    </div>
+                </div>
+                <div class="openaiagent-header-actions">
+                    <button type="button"
+                            class="openaiagent-new-chat"
+                            title="{{str_newconversation}}"
+                            aria-label="{{str_newconversation}}">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                    </button>
+                    <button type="button"
+                            class="openaiagent-close"
+                            title="{{str_closechat}}"
+                            aria-label="{{str_closechat}}">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            {{! Welcome / disclaimer banner }}
+            <div class="openaiagent-welcome-banner" role="status">
+                <div class="openaiagent-welcome-icon" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="16" x2="12" y2="12"></line>
+                        <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                    </svg>
+                </div>
+                <p class="openaiagent-welcome-text">{{welcomemessage}}</p>
+            </div>
+
+            {{! Messages Container }}
+            <div id="openaiagent-messages-{{blockid}}" class="openaiagent-messages" role="log" aria-live="polite"></div>
+
+            {{! Input Area }}
+            <div id="openaiagent-input-area-{{blockid}}" class="openaiagent-input-area">
+                <textarea id="openaiagent-input-{{blockid}}"
+                          class="openaiagent-input"
+                          placeholder="{{str_typemessage}}"
+                          rows="1"
+                          maxlength="2000"
+                          aria-label="{{str_typemessage}}"></textarea>
+                <button type="button"
+                        id="openaiagent-send-{{blockid}}"
+                        class="openaiagent-send-btn"
+                        disabled
+                        aria-label="{{str_sendmessage}}">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                    </svg>
+                </button>
+            </div>
+
+        </div>
+    </div>{{! end .openaiagent-modal }}
+
+</div>{{! end .openaiagent-container }}
