@@ -1,0 +1,42 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template block_openaiagent/message_avatar
+
+    Inner content of the small avatar shown beside an assistant chat bubble.
+
+    Rendered from JavaScript once per chat controller and reused for every
+    assistant message. The wrapper element carries aria-hidden, so the icon
+    needs no accessible name of its own.
+
+    Context variables required for this template:
+    * avatarurl - Optional URL of the configured avatar image; the default
+                  sparkle icon is drawn when it is empty.
+
+    Example context (json):
+    {
+        "avatarurl": ""
+    }
+}}
+{{#avatarurl}}
+    <img src="{{avatarurl}}" alt="" class="openaiagent-message-avatar-img">
+{{/avatarurl}}
+{{^avatarurl}}
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none">
+        <path d="M12 2L13.09 8.26L19 6L14.74 10.74L21 12L14.74 13.26L19 18L13.09 15.74L12 22L10.91 15.74L5 18L9.26 13.26L3 12L9.26 10.74L5 6L10.91 8.26L12 2Z" fill="white"/>
+    </svg>
+{{/avatarurl}}

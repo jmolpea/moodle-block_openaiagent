@@ -7,6 +7,67 @@ usa [Versionado Semántico](https://semver.org/lang/es/).
 
 ---
 
+## [4.15.1] — 2026-08-28
+
+Correcciones pedidas por la revisión de Moodle Marketplace (ticket MMRT-158). No
+cambia el comportamiento del asistente: cambia cómo está escrito el plugin.
+
+### Añadido
+
+- **Integración continua con GitHub Actions** (`.github/workflows/ci.yml`), a
+  partir de `gha.dist.yml` de `moodlehq/moodle-plugin-ci`. Cada commit ejecuta
+  phplint, phpcs, phpdoc, validate, savepoints, mustache lint, grunt, PHPUnit y
+  Behat contra `MOODLE_405_STABLE` en PHP 8.1/8.2/8.3 y PostgreSQL/MariaDB.
+- **`cachedef_filetext` y `cachedef_chatratelimit`** en los archivos de idioma:
+  las dos definiciones de `db/caches.php` no tenían cadena y aparecían sin
+  nombre en el gestor de cachés.
+- **Cadenas del inspector de restricciones de acceso** (`testtools_access_*`),
+  en inglés y español.
+- **`templates/message_avatar.mustache`**: el icono que acompaña a cada
+  respuesta del asistente ahora sale de una plantilla Moodle.
+- **Test unitario** de `analytics::exposed_participants_by_course()`.
+- **Test de regresión del patrón N+1**
+  (`test_course_rows_does_not_query_enrolment_per_course`): comprueba que el
+  número de consultas de `get_course_rows()` no crece con el número de cursos.
+  Verificado revirtiendo la corrección: con el código antiguo el test falla
+  (7 consultas con 3 cursos frente a 13 con 9).
+
+### Cambiado
+
+- **El inspector de restricciones de acceso ya no lleva texto en duro.** Sus
+  títulos, etiquetas de formulario, cabeceras de tabla y mensajes de error pasan
+  por `get_string()`, así que se traducen como el resto de la interfaz.
+- **La tabla de cursos del panel de analíticas ya no consulta las matriculaciones
+  curso a curso.** Antes hacía una consulta por cada curso con uso, antes incluso
+  de recortar la lista a las 200 filas que se muestran (patrón N+1). Ahora el
+  recorte va primero y las matriculaciones de los cursos que quedan se obtienen
+  en una sola consulta agrupada (`exposed_participants_by_course()`).
+- **El CSS del panel de analíticas vive en `styles.css`.** Se ha eliminado
+  `dashboard::styles()`, que emitía un `<style>` en línea en cada carga de la
+  página; Moodle agrega y cachea `styles.css` por su cuenta.
+- **El avatar del chat se construye desde una plantilla** en vez de asignar el
+  SVG con `innerHTML` desde JavaScript (`amd/src/chat.js`).
+
+### Corregido
+
+Incidencias detectadas al ejecutar en local las mismas comprobaciones que hará
+el nuevo CI. Eran previas a esta versión, pero habrían dejado el CI en rojo
+desde el primer commit:
+
+- **`phpcs`:** espaciado de `foreach` en `tests/local/course_config_test.php`,
+  `tests/local/support_gate_test.php` y `tests/orchestrator_test.php`, y dos
+  comentarios que incumplían el formato en `tests/license/validator_test.php` y
+  `amd/src/chat.js`.
+- **`eslint`:** la clave `confirm_support` de `actionRenderers` disparaba
+  `camelcase`. Ahora va entrecomillada: es el identificador de acción del
+  servidor y no puede renombrarse, y como literal la regla no aplica.
+- **`stylelint`:** `vector-effect` no es una propiedad CSS sino un atributo de
+  presentación SVG, así que ahora se emite en el propio `<polyline>` de
+  `dashboard.php`. Mientras el CSS vivía en un `<style>` en línea nadie lo
+  validaba; al pasar a `styles.css` sí se comprueba.
+
+---
+
 ## [4.15.0] — 2026-08-25
 
 Versión de preparación para la publicación en Moodle Marketplace. No cambia el

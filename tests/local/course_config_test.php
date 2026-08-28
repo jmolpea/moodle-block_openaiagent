@@ -79,9 +79,8 @@ final class course_config_test extends \advanced_testcase {
         $this->assertTrue($resolved['enabled']);
 
         // String fields are never null.
-        foreach (
-            ['courseprompt', 'modeloverride', 'evaluationpolicy', 'fallbacknoinfo'] as $field
-        ) {
+        $stringfields = ['courseprompt', 'modeloverride', 'evaluationpolicy', 'fallbacknoinfo'];
+        foreach ($stringfields as $field) {
             $this->assertIsString($resolved[$field], "$field should be a string");
         }
 

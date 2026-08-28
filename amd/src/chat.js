@@ -24,7 +24,12 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-define(['core/ajax', 'core/notification', 'core/str'], function(Ajax, Notification, Str) {
+define([
+    'core/ajax',
+    'core/notification',
+    'core/str',
+    'core/templates'
+], function(Ajax, Notification, Str, Templates) {
     'use strict';
 
     /**
@@ -42,6 +47,14 @@ define(['core/ajax', 'core/notification', 'core/str'], function(Ajax, Notificati
         this.sending = false;
         this.loaded = false;
         this.typingIndicator = null;
+
+        // The avatar markup comes from a Moodle template, rendered once here
+        // and reused for every assistant bubble. Keeping the promise (rather
+        // than the resolved HTML) means a message added before the template
+        // resolves still gets its icon, without addMessage having to be async.
+        this.avatarPromise = Templates.render('block_openaiagent/message_avatar', {
+            avatarurl: this.avatarUrl
+        });
 
         this.initElements();
         this.bindEvents();
@@ -257,9 +270,10 @@ define(['core/ajax', 'core/notification', 'core/str'], function(Ajax, Notificati
     /**
      * Build the small assistant avatar shown next to assistant bubbles.
      *
-     * Uses the configured avatar image when available, otherwise the default
-     * sparkle icon. User messages carry no avatar: in a narrow chat panel the
-     * extra circle only steals width from the text.
+     * The icon itself (configured image or the default sparkle) is rendered by
+     * the block_openaiagent/message_avatar template; this only creates the
+     * positioned wrapper it lives in. User messages carry no avatar: in a
+     * narrow chat panel the extra circle only steals width from the text.
      *
      * @return {HTMLElement} Avatar element.
      */
@@ -267,18 +281,9 @@ define(['core/ajax', 'core/notification', 'core/str'], function(Ajax, Notificati
         var avatar = document.createElement('div');
         avatar.className = 'openaiagent-message-avatar';
         avatar.setAttribute('aria-hidden', 'true');
-        if (this.avatarUrl) {
-            var img = document.createElement('img');
-            img.src = this.avatarUrl;
-            img.alt = '';
-            img.className = 'openaiagent-message-avatar-img';
-            avatar.appendChild(img);
-        } else {
-            avatar.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"' +
-                ' viewBox="0 0 24 24" fill="none"><path d="M12 2L13.09 8.26L19 6L14.74 10.74L21 12' +
-                'L14.74 13.26L19 18L13.09 15.74L12 22L10.91 15.74L5 18L9.26 13.26L3 12L9.26 10.74' +
-                'L5 6L10.91 8.26L12 2Z" fill="white"/></svg>';
-        }
+        this.avatarPromise.then(function(html) {
+            return Templates.replaceNodeContents(avatar, html, '');
+        }).catch(Notification.exception);
         return avatar;
     };
 
@@ -371,8 +376,8 @@ define(['core/ajax', 'core/notification', 'core/str'], function(Ajax, Notificati
         title.textContent = payload.title || '';
         card.appendChild(title);
 
-        // textContent throughout: this text was written by a language model and
-        // is never treated as markup.
+        // Text is assigned with textContent throughout: this content was written
+        // by a language model and is never treated as markup.
         var summary = document.createElement('p');
         summary.className = 'openaiagent-action-summary';
         summary.textContent = payload.summary || '';
@@ -457,9 +462,9 @@ define(['core/ajax', 'core/notification', 'core/str'], function(Ajax, Notificati
         });
     };
 
-    /** Renderers by action type. */
+    /** Renderers by action type. Keys are the server-side action type strings. */
     ChatController.prototype.actionRenderers = {
-        confirm_support: ChatController.prototype.renderSupportCard
+        'confirm_support': ChatController.prototype.renderSupportCard
     };
 
     /** Show a generic assistant error bubble. */

@@ -646,10 +646,11 @@ final class orchestrator_test extends \advanced_testcase {
         $fake->routerjson = '{"intent":"tutor","confidence":0.95,"needs_clarification":false}';
 
         $orchestrator = new orchestrator($fake);
-        foreach (
-            ['quiero hablar con una persona del equipo',
-                  'I need to speak to a real person from the support team'] as $message
-        ) {
+        $messages = [
+            'quiero hablar con una persona del equipo',
+            'I need to speak to a real person from the support team',
+        ];
+        foreach ($messages as $message) {
             $result = $orchestrator->handle_message($course->id, $user->id, $message);
             $this->assertSame('assistant', $result['route'], $message);
         }

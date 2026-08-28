@@ -92,8 +92,8 @@ final class validator_test extends \advanced_testcase {
         $this->assertSame(validator::TRIAL_DAYS, validator::trial_days_left());
 
         // A running trial says nothing to participants: it is fully functional,
-        // so there is no warning to show. (is_valid() is not asserted here: it
-        // short-circuits to true under PHPUNIT_TEST, so it proves nothing.)
+        // so there is no warning to show. is_valid() is not asserted here
+        // because it short-circuits to true under PHPUNIT_TEST, proving nothing.
         $this->assertNull(validator::get_banner());
     }
 

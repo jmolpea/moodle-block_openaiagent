@@ -133,6 +133,85 @@ final class analytics_test extends \advanced_testcase {
     }
 
     /**
+     * Enrolment counts for a whole page of courses come back from one grouped
+     * query, keyed by course id, and agree with the single-course helper.
+     */
+    public function test_exposed_participants_by_course(): void {
+        $this->resetAfterTest();
+
+        $one = $this->getDataGenerator()->create_course();
+        $two = $this->getDataGenerator()->create_course();
+        $empty = $this->getDataGenerator()->create_course();
+
+        $shared = $this->getDataGenerator()->create_user();
+        $this->getDataGenerator()->enrol_user($shared->id, $one->id);
+        $this->getDataGenerator()->enrol_user($shared->id, $two->id);
+        $this->getDataGenerator()->enrol_user(
+            $this->getDataGenerator()->create_user()->id,
+            $one->id
+        );
+
+        $counts = analytics::exposed_participants_by_course([$one->id, $two->id, $empty->id]);
+
+        $this->assertSame(2, $counts[$one->id]);
+        $this->assertSame(1, $counts[$two->id]);
+        // A course with nobody enrolled produces no row at all, not a zero.
+        $this->assertArrayNotHasKey($empty->id, $counts);
+        // The same figures the per-course helper would have returned one by one.
+        $this->assertSame(analytics::exposed_participants([$one->id]), $counts[$one->id]);
+        $this->assertSame([], analytics::exposed_participants_by_course([]));
+    }
+
+    /**
+     * The course table must not run one enrolment query per course.
+     *
+     * The dashboard lists up to 200 courses, so an enrolment query per row is
+     * an N+1 pattern that grows without bound on a busy site. What is asserted
+     * here is the shape, not a magic number: doubling the number of courses
+     * must not increase the number of queries.
+     */
+    public function test_course_rows_does_not_query_enrolment_per_course(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        $countfor = function (int $addcourses, int $expectedtotal): int {
+            global $DB;
+            for ($i = 0; $i < $addcourses; $i++) {
+                $course = $this->getDataGenerator()->create_course();
+                $user = $this->getDataGenerator()->create_user();
+                $this->getDataGenerator()->enrol_user($user->id, $course->id);
+                $this->enable_course($course->id);
+                $conv = conversation_repository::create($user->id, $course->id);
+                conversation_repository::add_message($conv->id, 'user', 'q');
+                conversation_repository::add_message($conv->id, 'assistant', 'a', ['route' => 'tutor']);
+            }
+            analytics::build();
+            $today = analytics::day_start(time());
+
+            $before = $DB->perf_get_queries();
+            $rows = analytics::get_course_rows($today, $today);
+            $queries = $DB->perf_get_queries() - $before;
+
+            $this->assertCount($expectedtotal, $rows);
+            foreach ($rows as $row) {
+                $this->assertSame(1, $row->enrolled);
+                $this->assertEqualsWithDelta(1.0, $row->adoption, 0.0001);
+            }
+            return $queries;
+        };
+
+        $three = $countfor(3, 3);
+        $nine = $countfor(6, 9); // Six more courses on top of the first three.
+
+        $this->assertSame(
+            $three,
+            $nine,
+            "get_course_rows() used $three queries for 3 courses but $nine for 9: " .
+            'the enrolment lookup is still running once per course.'
+        );
+    }
+
+    /**
      * Filtering by course must narrow the whole dashboard, not only the table
      * at the bottom. While the headline figures stayed site-wide they read as
      * if they belonged to the single course listed underneath them.

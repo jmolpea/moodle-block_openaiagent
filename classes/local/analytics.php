@@ -493,6 +493,45 @@ class analytics {
     }
 
     /**
+     * Distinct active-enrolled users, counted per course in a single query.
+     *
+     * The dashboard needs this figure for a whole page of courses at once.
+     * Calling exposed_participants() per course turns that into an N+1 pattern,
+     * so the counts are grouped server-side and returned keyed by course id.
+     *
+     * @param int[] $courseids Course ids (empty returns an empty array).
+     * @return array Course id => count of distinct exposed participants.
+     */
+    public static function exposed_participants_by_course(array $courseids): array {
+        global $DB;
+        if (!$courseids) {
+            return [];
+        }
+        [$insql, $params] = $DB->get_in_or_equal($courseids, SQL_PARAMS_NAMED, 'c');
+        $now = time();
+        $params['now1'] = $now;
+        $params['now2'] = $now;
+        $rows = $DB->get_records_sql(
+            "SELECT e.courseid, COUNT(DISTINCT ue.userid) AS n
+               FROM {enrol} e
+               JOIN {user_enrolments} ue ON ue.enrolid = e.id
+               JOIN {user} u ON u.id = ue.userid
+              WHERE e.courseid $insql
+                AND e.status = 0 AND ue.status = 0
+                AND u.deleted = 0 AND u.suspended = 0
+                AND (ue.timestart = 0 OR ue.timestart <= :now1)
+                AND (ue.timeend = 0 OR ue.timeend >= :now2)
+           GROUP BY e.courseid",
+            $params
+        );
+        $out = [];
+        foreach ($rows as $row) {
+            $out[(int)$row->courseid] = (int)$row->n;
+        }
+        return $out;
+    }
+
+    /**
      * Assistant-answer counts grouped by route (Tutor / Assistant / Ambiguous / …).
      *
      * @param int $from Midnight timestamp (inclusive).
@@ -746,7 +785,6 @@ class analytics {
                     continue;
                 }
             }
-            $enrolled = self::exposed_participants([$cid]);
             $answers = isset($errrows[$cid]) ? (int)$errrows[$cid]->answers : 0;
             $errors = isset($errrows[$cid]) ? (int)$errrows[$cid]->errors : 0;
             $rows[] = (object)[
@@ -755,8 +793,8 @@ class analytics {
                 'shortname' => $course->shortname,
                 'users' => (int)$u->users,
                 'questions' => (int)$u->questions,
-                'enrolled' => $enrolled,
-                'adoption' => $enrolled > 0 ? (int)$u->users / $enrolled : 0.0,
+                'enrolled' => 0,
+                'adoption' => 0.0,
                 'recurrent' => isset($recur[$cid]) ? (int)$recur[$cid]->n : 0,
                 'answers' => $answers,
                 'errors' => $errors,
@@ -770,6 +808,18 @@ class analytics {
         if ($limit > 0) {
             $rows = array_slice($rows, 0, $limit);
         }
+
+        // Enrolment is only needed for the rows that survive the display limit,
+        // and it is fetched for all of them in one grouped query rather than
+        // one query per course.
+        if ($rows) {
+            $enrolled = self::exposed_participants_by_course(array_column($rows, 'courseid'));
+            foreach ($rows as $row) {
+                $row->enrolled = $enrolled[$row->courseid] ?? 0;
+                $row->adoption = $row->enrolled > 0 ? $row->users / $row->enrolled : 0.0;
+            }
+        }
+
         return $rows;
     }
 

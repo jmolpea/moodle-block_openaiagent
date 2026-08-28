@@ -258,7 +258,7 @@ if ($rcourseid > 0 && trim($rquery) !== '' && confirm_sesskey()) {
 // as Moodle computes them for that user, plus the raw output of the two restriction
 // tools. Lets an admin see whether a "no restriction" answer is a section-number
 // mismatch, a genuinely available section, or a tool bug -- without guessing.
-echo $OUTPUT->heading('Inspector de restricciones de acceso', 3);
+echo $OUTPUT->heading(get_string('testtools_access_heading', 'block_openaiagent'), 3);
 
 $scourseid = optional_param('scourseid', 0, PARAM_INT);
 $suserid = optional_param('suserid', 0, PARAM_INT);
@@ -266,22 +266,35 @@ $ssection = optional_param('ssection', -1, PARAM_INT);
 
 echo html_writer::start_tag('form', ['method' => 'get', 'action' => $url->out(false), 'class' => 'form-inline']);
 echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'sesskey', 'value' => sesskey()]);
-echo html_writer::tag('label', 'Course id ', ['class' => 'mr-1']);
+echo html_writer::tag('label', get_string('testtools_access_courseid', 'block_openaiagent') . ' ', [
+    'for' => 'oaa_scourseid',
+    'class' => 'mr-1',
+]);
 echo html_writer::empty_tag('input', [
-    'type' => 'number', 'name' => 'scourseid', 'value' => $scourseid ?: '',
+    'type' => 'number', 'id' => 'oaa_scourseid', 'name' => 'scourseid', 'value' => $scourseid ?: '',
     'class' => 'form-control mr-2', 'style' => 'width:8em',
 ]);
-echo html_writer::tag('label', 'User id (alumno) ', ['class' => 'mr-1']);
+echo html_writer::tag('label', get_string('testtools_access_userid', 'block_openaiagent') . ' ', [
+    'for' => 'oaa_suserid',
+    'class' => 'mr-1',
+]);
 echo html_writer::empty_tag('input', [
-    'type' => 'number', 'name' => 'suserid', 'value' => $suserid ?: '',
+    'type' => 'number', 'id' => 'oaa_suserid', 'name' => 'suserid', 'value' => $suserid ?: '',
     'class' => 'form-control mr-2', 'style' => 'width:8em',
 ]);
-echo html_writer::tag('label', 'Section number (opcional) ', ['class' => 'mr-1']);
+echo html_writer::tag('label', get_string('testtools_access_section', 'block_openaiagent') . ' ', [
+    'for' => 'oaa_ssection',
+    'class' => 'mr-1',
+]);
 echo html_writer::empty_tag('input', [
-    'type' => 'number', 'name' => 'ssection', 'value' => $ssection >= 0 ? $ssection : '',
+    'type' => 'number', 'id' => 'oaa_ssection', 'name' => 'ssection',
+    'value' => $ssection >= 0 ? $ssection : '',
     'class' => 'form-control mr-2', 'style' => 'width:8em',
 ]);
-echo html_writer::tag('button', 'Inspeccionar', ['type' => 'submit', 'class' => 'btn btn-secondary']);
+echo html_writer::tag('button', get_string('testtools_access_run', 'block_openaiagent'), [
+    'type' => 'submit',
+    'class' => 'btn btn-secondary',
+]);
 echo html_writer::end_tag('form');
 
 if ($scourseid > 0 && $suserid > 0 && confirm_sesskey()) {
@@ -290,7 +303,14 @@ if ($scourseid > 0 && $suserid > 0 && confirm_sesskey()) {
         $smodinfo = get_fast_modinfo($scourse, $suserid);
 
         $stable = new html_table();
-        $stable->head = ['#', 'name', 'visible', 'available', 'uservisible', 'availableinfo (motivo)'];
+        $stable->head = [
+            '#',
+            get_string('testtools_access_name', 'block_openaiagent'),
+            get_string('testtools_access_visible', 'block_openaiagent'),
+            get_string('testtools_access_available', 'block_openaiagent'),
+            get_string('testtools_access_uservisible', 'block_openaiagent'),
+            get_string('testtools_access_reason', 'block_openaiagent'),
+        ];
         foreach ($smodinfo->get_section_info_all() as $s) {
             try {
                 $avail = (bool)$s->available;
@@ -318,7 +338,11 @@ if ($scourseid > 0 && $suserid > 0 && confirm_sesskey()) {
                 s($info),
             ];
         }
-        echo html_writer::tag('h4', 'Secciones (crudo, como las ve el alumno ' . (int)$suserid . ')');
+        echo html_writer::tag('h4', get_string(
+            'testtools_access_sections_heading',
+            'block_openaiagent',
+            (int)$suserid
+        ));
         echo html_writer::table($stable);
 
         // Raw tool output as that user.
@@ -328,7 +352,7 @@ if ($scourseid > 0 && $suserid > 0 && confirm_sesskey()) {
             $suserid,
             $scourseid
         );
-        echo html_writer::tag('h4', 'moodle.get_course_outline (salida)');
+        echo html_writer::tag('h4', get_string('testtools_access_outline_heading', 'block_openaiagent'));
         echo html_writer::tag(
             'pre',
             s(json_encode($outline, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)),
@@ -342,7 +366,11 @@ if ($scourseid > 0 && $suserid > 0 && confirm_sesskey()) {
                 $suserid,
                 $scourseid
             );
-            echo html_writer::tag('h4', 'moodle.get_section_gate_status (section ' . (int)$ssection . ')');
+            echo html_writer::tag('h4', get_string(
+                'testtools_access_gate_heading',
+                'block_openaiagent',
+                (int)$ssection
+            ));
             echo html_writer::tag(
                 'pre',
                 s(json_encode($gate, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)),
@@ -350,7 +378,10 @@ if ($scourseid > 0 && $suserid > 0 && confirm_sesskey()) {
             );
         }
     } catch (\Throwable $e) {
-        echo $OUTPUT->notification('Error: ' . $e->getMessage(), \core\output\notification::NOTIFY_ERROR);
+        echo $OUTPUT->notification(
+            get_string('testtools_access_error', 'block_openaiagent', $e->getMessage()),
+            \core\output\notification::NOTIFY_ERROR
+        );
     }
 }
 

@@ -292,10 +292,14 @@ final class support_gate_test extends \advanced_testcase {
     public function test_accepting_an_offer_opens_the_gate(): void {
         $offer = 'Como la fecha ya pasó, la acción necesaria es solicitar una excepción. '
             . 'Puedo preparar la solicitud desde este chat para que la confirmes antes de enviarla.';
-        foreach (
-            ['sí, quiero que lo reporten', 'vale, hazlo', 'adelante por favor',
-                  'pero necesito entregarla como sea, ayudame', 'yes please, go ahead'] as $message
-        ) {
+        $messages = [
+            'sí, quiero que lo reporten',
+            'vale, hazlo',
+            'adelante por favor',
+            'pero necesito entregarla como sea, ayudame',
+            'yes please, go ahead',
+        ];
+        foreach ($messages as $message) {
             $this->assistant_said($offer);
             $verdict = $this->gate($message);
             $this->assertTrue($verdict['allowed'], $message);
