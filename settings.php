@@ -265,19 +265,22 @@ if ($ADMIN->fulltree) {
     // the list stays selectable so upgrades never silently change the model.
     $providermodels = [
         'openai' => [
+            'gpt-6-luna', 'gpt-6-sol',
             'gpt-5.6-luna',
             'gpt-5', 'gpt-5-mini', 'gpt-5-nano',
             'gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1-nano',
             'gpt-4o', 'gpt-4o-mini', 'o4-mini',
         ],
         'anthropic' => [
+            'claude-opus-5-5', 'claude-fable-5-1', 'claude-opus-5',
             'claude-sonnet-5', 'claude-haiku-4-5', 'claude-opus-4-8', 'claude-sonnet-4-5',
         ],
         'gemini' => [
-            'gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash',
+            'gemini-3.8-flash', 'gemini-3.5-flash', 'gemini-3.5-flash-lite',
+            'gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.5-flash-lite',
         ],
         'deepseek' => [
-            'deepseek-chat', 'deepseek-reasoner',
+            'deepseek-pro', 'deepseek-flash', 'deepseek-chat', 'deepseek-reasoner',
         ],
     ];
     $modeldefaults = [
@@ -286,13 +289,25 @@ if ($ADMIN->fulltree) {
         // single turn and is better served by a non-reasoning model that
         // answers instantly.
         'openai' => [
-            'content' => 'gpt-5.6-luna',
+            'content' => 'gpt-6-luna',
             'model' => 'gpt-4.1-mini',
             'small' => 'gpt-4.1-nano',
         ],
-        'anthropic' => ['model' => 'claude-haiku-4-5', 'small' => 'claude-haiku-4-5'],
-        'gemini' => ['model' => 'gemini-2.5-flash', 'small' => 'gemini-2.5-flash-lite'],
-        'deepseek' => ['model' => 'deepseek-chat', 'small' => 'deepseek-chat'],
+        'anthropic' => [
+            'content' => 'claude-sonnet-5',
+            'model' => 'claude-haiku-4-5',
+            'small' => 'claude-haiku-4-5',
+        ],
+        'gemini' => [
+            'content' => 'gemini-3.8-flash',
+            'model' => 'gemini-3.5-flash',
+            'small' => 'gemini-3.5-flash-lite',
+        ],
+        'deepseek' => [
+            'content' => 'deepseek-pro',
+            'model' => 'deepseek-flash',
+            'small' => 'deepseek-flash',
+        ],
     ];
 
     $models = [

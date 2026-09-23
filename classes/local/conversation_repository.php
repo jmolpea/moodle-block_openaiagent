@@ -226,7 +226,18 @@ class conversation_repository {
         $record->errormessage = (string)($meta['errormessage'] ?? '');
         $record->timecreated = time();
 
-        return $DB->insert_record(self::MESSAGES, $record);
+        $messageid = $DB->insert_record(self::MESSAGES, $record);
+
+        // A stored message is activity, so it must move the conversation's
+        // timemodified: that field is what the retention purge reads. Only
+        // update() used to touch it, and update() is called just for routing
+        // and state changes -- a run of turns that changed neither left the
+        // conversation looking stale while messages kept arriving, so the
+        // purge could delete a live conversation together with messages
+        // written days after the cutoff.
+        $DB->set_field(self::CONVERSATIONS, 'timemodified', $record->timecreated, ['id' => $conversationid]);
+
+        return $messageid;
     }
 
     /**
@@ -527,5 +538,80 @@ class conversation_repository {
             $DB->delete_records_select(self::CONVERSATIONS, "id $insql", $params);
         }
         return count($ids);
+    }
+
+    /**
+     * Delete stored messages older than a cutoff, wherever they live.
+     *
+     * Retention applied per conversation is not retention: a conversation is
+     * long-lived (one per user and course, reused on every visit), so a
+     * participant who still chats keeps its timemodified recent for ever and
+     * purge_older_than() never reaches it -- while the turns it holds from a
+     * year ago stay stored. This is the sweep that actually enforces the
+     * window, over the message rows themselves. The conversation row survives
+     * with its routing state, so an active chat keeps working; it simply
+     * forgets what was said before the cutoff.
+     *
+     * @param int $cutoff Unix timestamp; messages created before this are
+     *                    deleted. A non-positive value is a no-op.
+     * @return int Number of messages deleted.
+     */
+    public static function purge_messages_older_than(int $cutoff): int {
+        global $DB;
+        if ($cutoff <= 0) {
+            return 0;
+        }
+        $count = $DB->count_records_select(self::MESSAGES, 'timecreated < ?', [$cutoff]);
+        if ($count === 0) {
+            return 0;
+        }
+        $DB->delete_records_select(self::MESSAGES, 'timecreated < ?', [$cutoff]);
+        return $count;
+    }
+
+    /**
+     * Delete support escalations older than a cutoff, and any left orphaned.
+     *
+     * Escalations were outliving the retention window entirely: the row holds
+     * the participant's user id and a summary drafted from what they wrote, so
+     * leaving it behind after its conversation is gone keeps personal data the
+     * admin asked to have deleted. Requests still awaiting confirmation are
+     * left alone whatever their age -- expire_drafts() retires those on its own
+     * schedule, and deleting one mid-flight would strand a participant who is
+     * about to confirm it.
+     *
+     * @param int $cutoff Unix timestamp; requests modified before this are
+     *                    deleted. A non-positive value is a no-op.
+     * @return int Number of support requests deleted.
+     */
+    public static function purge_support_requests_older_than(int $cutoff): int {
+        global $DB;
+        if ($cutoff <= 0) {
+            return 0;
+        }
+        $table = 'block_openaiagent_supportreq';
+        $select = 'timemodified < ? AND status <> ?';
+        $params = [$cutoff, 'draft'];
+        $count = $DB->count_records_select($table, $select, $params);
+        if ($count > 0) {
+            $DB->delete_records_select($table, $select, $params);
+        }
+
+        // Orphans: the conversation they came from has already been purged, so
+        // there is nothing left to escalate about and no transcript to read.
+        $orphans = $DB->count_records_select(
+            $table,
+            'conversationid > 0 AND status <> ? AND conversationid NOT IN (SELECT id FROM {' . self::CONVERSATIONS . '})',
+            ['draft']
+        );
+        if ($orphans > 0) {
+            $DB->delete_records_select(
+                $table,
+                'conversationid > 0 AND status <> ? AND conversationid NOT IN (SELECT id FROM {' . self::CONVERSATIONS . '})',
+                ['draft']
+            );
+        }
+
+        return $count + $orphans;
     }
 }

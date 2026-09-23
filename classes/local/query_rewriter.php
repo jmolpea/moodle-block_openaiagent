@@ -207,8 +207,8 @@ EOT;
         $defaults = [
             'openai' => 'gpt-5-nano',
             'anthropic' => 'claude-haiku-4-5',
-            'gemini' => 'gemini-2.5-flash-lite',
-            'deepseek' => 'deepseek-chat',
+            'gemini' => 'gemini-3.5-flash-lite',
+            'deepseek' => 'deepseek-flash',
         ];
         $candidate = $defaults[factory::provider()] ?? '';
         if ($candidate !== '' && $client->owns_model($candidate)) {

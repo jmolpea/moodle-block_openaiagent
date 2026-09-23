@@ -1336,5 +1336,43 @@ EOT;
         upgrade_block_savepoint(true, 2026082500, 'openaiagent');
     }
 
+    if ($oldversion < 2026092300) {
+        // OpenAI replaced gpt-5.6-luna with gpt-6-luna: same role in the family,
+        // half the price and fewer mistakes. Only agents and settings still on
+        // the previous default are moved, so a deliberate choice of any other
+        // model -- gpt-5.6-luna included, once someone has picked it by hand on
+        // top of another default -- is left alone. Per-course model overrides
+        // are never touched: those are explicit teacher decisions.
+        $now = time();
+        foreach ($DB->get_records('block_openaiagent_agents', ['defaultmodel' => 'gpt-5.6-luna']) as $agent) {
+            $DB->update_record('block_openaiagent_agents', (object) [
+                'id' => $agent->id,
+                'defaultmodel' => 'gpt-6-luna',
+                'timemodified' => $now,
+            ]);
+        }
+        foreach (['default_tutor_model', 'default_assistant_model', 'default_router_model',
+                'default_ambiguity_model'] as $name) {
+            if ((string)get_config('block_openaiagent', $name) === 'gpt-5.6-luna') {
+                set_config($name, 'gpt-6-luna', 'block_openaiagent');
+            }
+        }
+
+        upgrade_block_savepoint(true, 2026092300, 'openaiagent');
+    }
+
+    if ($oldversion < 2026092301) {
+        // The retention purge now sweeps messages by age across every
+        // conversation, which without this index is a full table scan of the
+        // largest table the plugin owns.
+        $table = new xmldb_table('block_openaiagent_messages');
+        $index = new xmldb_index('timecreated_ix', XMLDB_INDEX_NOTUNIQUE, ['timecreated']);
+        if (!$dbman->index_exists($table, $index)) {
+            $dbman->add_index($table, $index);
+        }
+
+        upgrade_block_savepoint(true, 2026092301, 'openaiagent');
+    }
+
     return true;
 }

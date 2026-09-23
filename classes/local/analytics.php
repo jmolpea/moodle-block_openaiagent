@@ -839,6 +839,8 @@ class analytics {
         // plugin setting, and a model with no entry is counted in tokens but
         // excluded from the cost estimate rather than guessed at.
         $defaults = [
+            'gpt-6-sol' => [2.0, 10.0, 0.2],
+            'gpt-6-luna' => [0.1, 0.5, 0.01],
             'gpt-5.6-luna' => [0.2, 1.2, 0.02],
             'gpt-5' => [1.25, 10.0, 0.125],
             'gpt-5-mini' => [0.25, 2.0, 0.025],

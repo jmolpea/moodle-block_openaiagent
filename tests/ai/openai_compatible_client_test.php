@@ -45,16 +45,18 @@ final class openai_compatible_client_test extends \advanced_testcase {
     /**
      * Only the models that actually refuse the combination are flagged.
      *
-     * gpt-5.6 rejects function tools alongside a reasoning effort on
+     * gpt-5.6 and gpt-6 reject function tools alongside a reasoning effort on
      * /v1/chat/completions: "To use function tools, use /v1/responses or set
      * reasoning_effort to 'none'". The assistant is the only route that sends
      * tools, so getting this wrong breaks every assistant turn with a 400 while
      * the tutor carries on working -- and getting it wrong the other way would
      * silently switch reasoning off on models that do support the combination.
      */
-    public function test_only_gpt_5_6_rejects_tools_with_reasoning(): void {
+    public function test_only_gpt_5_6_and_gpt_6_reject_tools_with_reasoning(): void {
         $this->assertTrue($this->rejects('gpt-5.6-luna'));
         $this->assertTrue($this->rejects('GPT-5.6-LUNA'));
+        $this->assertTrue($this->rejects('gpt-6-luna'));
+        $this->assertTrue($this->rejects('gpt-6-sol'));
 
         $this->assertFalse($this->rejects('gpt-5-mini'));
         $this->assertFalse($this->rejects('gpt-5'));

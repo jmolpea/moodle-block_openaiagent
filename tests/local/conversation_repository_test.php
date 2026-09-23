@@ -249,6 +249,115 @@ final class conversation_repository_test extends \advanced_testcase {
     }
 
     /**
+     * Storing a message marks the conversation as active.
+     *
+     * Only update() used to move timemodified, so a stretch of turns that
+     * changed no routing state left the conversation looking untouched while
+     * messages kept arriving -- and the retention purge reads that field.
+     */
+    public function test_add_message_touches_the_conversation(): void {
+        global $DB;
+        $this->resetAfterTest();
+        set_config('log_messages', 1, 'block_openaiagent');
+
+        $course = $this->getDataGenerator()->create_course();
+        $user = $this->getDataGenerator()->create_user();
+        $conversation = conversation_repository::create($user->id, $course->id);
+
+        $stale = time() - (100 * DAYSECS);
+        $DB->set_field(
+            'block_openaiagent_conversations',
+            'timemodified',
+            $stale,
+            ['id' => $conversation->id]
+        );
+
+        conversation_repository::add_message($conversation->id, 'user', 'still here');
+
+        $modified = (int)$DB->get_field(
+            'block_openaiagent_conversations',
+            'timemodified',
+            ['id' => $conversation->id]
+        );
+        $this->assertGreaterThan($stale, $modified);
+    }
+
+    /**
+     * Messages older than the cutoff go even when their conversation is alive.
+     *
+     * A conversation is reused for as long as the participant keeps chatting,
+     * so purging by conversation alone never reaches the turns it holds from
+     * before the window -- which is the whole point of the setting.
+     */
+    public function test_purge_messages_older_than_reaches_live_conversations(): void {
+        global $DB;
+        $this->resetAfterTest();
+        set_config('log_messages', 1, 'block_openaiagent');
+
+        $course = $this->getDataGenerator()->create_course();
+        $user = $this->getDataGenerator()->create_user();
+
+        $conversation = conversation_repository::create($user->id, $course->id);
+        $oldmessage = conversation_repository::add_message($conversation->id, 'user', 'last year');
+        $DB->set_field(
+            'block_openaiagent_messages',
+            'timecreated',
+            time() - (100 * DAYSECS),
+            ['id' => $oldmessage]
+        );
+        $recentmessage = conversation_repository::add_message($conversation->id, 'user', 'today');
+
+        $cutoff = time() - (30 * DAYSECS);
+        $this->assertSame(1, conversation_repository::purge_messages_older_than($cutoff));
+
+        // The old turn is gone; the conversation and its recent turn remain.
+        $this->assertFalse($DB->record_exists('block_openaiagent_messages', ['id' => $oldmessage]));
+        $this->assertTrue($DB->record_exists('block_openaiagent_messages', ['id' => $recentmessage]));
+        $this->assertTrue($DB->record_exists(
+            'block_openaiagent_conversations',
+            ['id' => $conversation->id]
+        ));
+    }
+
+    /**
+     * Support escalations do not outlive the retention window, and an
+     * unanswered draft is never deleted from under the participant.
+     */
+    public function test_purge_support_requests_older_than(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        $course = $this->getDataGenerator()->create_course();
+        $user = $this->getDataGenerator()->create_user();
+        $conversation = conversation_repository::create($user->id, $course->id);
+        $now = time();
+        $stale = $now - (100 * DAYSECS);
+
+        $base = [
+            'courseid' => $course->id,
+            'userid' => $user->id,
+            'conversationid' => $conversation->id,
+            'category' => 'otro',
+            'summaryhash' => sha1('x'),
+            'token' => 'tok',
+            'ticketref' => 'OA-1-1',
+            'timecreated' => $stale,
+            'timemodified' => $stale,
+        ];
+        $old = $DB->insert_record('block_openaiagent_supportreq', (object)($base + ['status' => 'sent']));
+        $draft = $DB->insert_record('block_openaiagent_supportreq', (object)($base + ['status' => 'draft']));
+        $recent = $DB->insert_record('block_openaiagent_supportreq', (object)array_merge(
+            $base,
+            ['status' => 'sent', 'timemodified' => $now]
+        ));
+
+        $this->assertSame(1, conversation_repository::purge_support_requests_older_than($now - (30 * DAYSECS)));
+        $this->assertFalse($DB->record_exists('block_openaiagent_supportreq', ['id' => $old]));
+        $this->assertTrue($DB->record_exists('block_openaiagent_supportreq', ['id' => $draft]));
+        $this->assertTrue($DB->record_exists('block_openaiagent_supportreq', ['id' => $recent]));
+    }
+
+    /**
      * A non-positive cutoff is a no-op (retention disabled).
      */
     public function test_purge_older_than_noop_when_disabled(): void {

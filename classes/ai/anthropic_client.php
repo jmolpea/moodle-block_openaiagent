@@ -89,7 +89,7 @@ class anthropic_client extends client_base {
      * @return bool
      */
     private static function supports_thinking(string $model): bool {
-        return preg_match('/^claude-(3-7|(sonnet|haiku|opus)-[4-9])/', strtolower($model)) === 1;
+        return preg_match('/^claude-(3-7|(sonnet|haiku|opus|fable)-[4-9])/', strtolower($model)) === 1;
     }
 
     /**

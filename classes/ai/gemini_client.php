@@ -34,7 +34,7 @@ class gemini_client extends client_base {
      * @return string
      */
     public function default_model(): string {
-        return 'gemini-2.5-flash';
+        return 'gemini-3.5-flash';
     }
 
     /**

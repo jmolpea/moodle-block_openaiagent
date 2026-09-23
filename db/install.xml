@@ -190,6 +190,9 @@
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
         <KEY NAME="conversationid" TYPE="foreign" FIELDS="conversationid" REFTABLE="block_openaiagent_conversations" REFFIELDS="id"/>
       </KEYS>
+      <INDEXES>
+        <INDEX NAME="timecreated_ix" UNIQUE="false" FIELDS="timecreated" COMMENT="Retention purge sweeps messages by age across every conversation"/>
+      </INDEXES>
     </TABLE>
 
     <TABLE NAME="block_openaiagent_chunks" COMMENT="Knowledge-base chunks (with embeddings) for local tutor retrieval">

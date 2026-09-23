@@ -7,6 +7,69 @@ usa [Versionado Semántico](https://semver.org/lang/es/).
 
 ---
 
+## [4.16.0] — 2026-09-23
+
+Actualización de los modelos por defecto de los cuatro proveedores a la
+generación actual, y corrección de la retención de conversaciones.
+
+### Corregido
+
+- **La retención solo borraba conversaciones enteras, no mensajes.** Una
+  conversación es de larga vida (una por participante y curso, reutilizada en
+  cada visita), así que mientras alguien siguiera escribiendo su `timemodified`
+  nunca quedaba por detrás del corte y sus turnos de hace meses se conservaban
+  indefinidamente. La tarea `purge_conversations_task` barre ahora también los
+  mensajes anteriores al corte dentro de las conversaciones vivas; la fila de la
+  conversación sobrevive con su estado de enrutado, de modo que el chat sigue
+  funcionando y simplemente olvida lo anterior al corte.
+- **Guardar un mensaje no marcaba la conversación como activa.** Solo `update()`
+  tocaba `timemodified`, y `update()` se llama únicamente cuando cambia el
+  enrutado o el estado. Una racha de turnos que no cambiara ninguno de los dos
+  dejaba la conversación con aspecto de abandonada mientras seguían entrando
+  mensajes, y la purga podía borrarla junto con mensajes escritos días después
+  del corte. `add_message()` actualiza ahora `timemodified`.
+- **Las escalaciones de soporte sobrevivían a la retención.** La tabla
+  `block_openaiagent_supportreq` guarda el `userid` y un resumen redactado a
+  partir de lo que escribió el participante, y no se purgaba nunca, ni siquiera
+  cuando su conversación ya había desaparecido. Se purgan ahora por antigüedad,
+  junto con las huérfanas; los borradores pendientes de confirmar se siguen
+  retirando por su propia expiración, para no dejar a medias a quien está a
+  punto de confirmar.
+- Índice `timecreated_ix` en `block_openaiagent_messages`: sin él, el barrido por
+  antigüedad sería un escaneo completo de la tabla más grande del plugin.
+
+### Cambiado
+
+- **OpenAI: `gpt-6-luna` como modelo por defecto** del tutor y del asistente, en
+  lugar de `gpt-5.6-luna` (mismo papel en la familia, la mitad de precio y menos
+  errores). El router y el agente de ambigüedad siguen en `gpt-4.1-mini` y
+  `gpt-4.1-nano`: son clasificadores JSON que se ejecutan en cada turno y un
+  modelo sin razonamiento los resuelve al instante. `gpt-6-sol` queda disponible
+  en la lista.
+- **Anthropic: `claude-sonnet-5`** por defecto para tutor y asistente (antes
+  `claude-haiku-4-5` para todo); Haiku 4.5 se mantiene como router. Se añaden
+  `claude-opus-5-5`, `claude-opus-5` y `claude-fable-5-1` a la lista.
+- **Gemini: `gemini-3.8-flash`** para el contenido, `gemini-3.5-flash` para el
+  router y `gemini-3.5-flash-lite` para el agente pequeño y la reescritura de
+  consultas.
+- **DeepSeek: `deepseek-pro`** para el contenido y `deepseek-flash` para router y
+  agente pequeño. `deepseek-chat` y `deepseek-reasoner` siguen siendo
+  seleccionables.
+- La familia `gpt-6` se trata como modelo de razonamiento: no se le envía
+  `temperature` y, cuando la ruta lleva herramientas, se envía
+  `reasoning_effort: none` (la misma restricción documentada para `gpt-5.6` en
+  `/v1/chat/completions`).
+- El razonamiento extendido de Anthropic reconoce también los modelos `fable-*`.
+- Precios por defecto del panel de costes para `gpt-6-luna` y `gpt-6-sol`.
+
+### Actualización
+
+- Los agentes y los ajustes que seguían en el valor por defecto anterior
+  (`gpt-5.6-luna`) pasan a `gpt-6-luna`. Los modelos elegidos a mano y los
+  overrides por curso no se tocan.
+
+---
+
 ## [4.15.1] — 2026-08-28
 
 Correcciones pedidas por la revisión de Moodle Marketplace (ticket MMRT-158). No

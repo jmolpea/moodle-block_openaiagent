@@ -65,5 +65,19 @@ class purge_conversations_task extends \core\task\scheduled_task {
         if ($deleted > 0) {
             mtrace("block_openaiagent: purged {$deleted} conversation(s) older than {$days} day(s).");
         }
+
+        // Conversations are long-lived, so the sweep above only reaches the ones
+        // nobody has used since the cutoff. The messages of a conversation still
+        // in use are older than the window just as often, and they are what the
+        // retention setting is about, so they are purged in their own right.
+        $messages = conversation_repository::purge_messages_older_than($cutoff);
+        if ($messages > 0) {
+            mtrace("block_openaiagent: purged {$messages} message(s) older than {$days} day(s).");
+        }
+
+        $requests = conversation_repository::purge_support_requests_older_than($cutoff);
+        if ($requests > 0) {
+            mtrace("block_openaiagent: purged {$requests} support request(s) older than {$days} day(s).");
+        }
     }
 }

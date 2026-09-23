@@ -575,7 +575,7 @@ EOT;
                 'agenttype' => 'tutor',
                 'description' => 'Course academic tutor grounded in the course knowledge base.',
                 'baseprompt' => self::TUTOR_PROMPT,
-                'defaultmodel' => 'gpt-5.6-luna',
+                'defaultmodel' => 'gpt-6-luna',
                 'temperature' => 0.25,
                 'maxoutputtokens' => 1800,
             ],
@@ -584,7 +584,7 @@ EOT;
                 'agenttype' => 'assistant',
                 'description' => 'Moodle platform assistant using MCP tools.',
                 'baseprompt' => self::ASSISTANT_PROMPT,
-                'defaultmodel' => 'gpt-5.6-luna',
+                'defaultmodel' => 'gpt-6-luna',
                 'temperature' => 0.20,
                 'maxoutputtokens' => 1000,
             ],
@@ -660,8 +660,8 @@ EOT;
             'deepseek_base_url' => 'https://api.deepseek.com/v1',
             'embeddings_provider' => 'auto',
             'default_router_model' => 'gpt-4.1-mini',
-            'default_tutor_model' => 'gpt-5.6-luna',
-            'default_assistant_model' => 'gpt-5.6-luna',
+            'default_tutor_model' => 'gpt-6-luna',
+            'default_assistant_model' => 'gpt-6-luna',
             'default_ambiguity_model' => 'gpt-4.1-nano',
             // Empty = send nothing, i.e. each provider's own default. Opt-in, so
             // upgrading never silently changes how hard a model thinks.

@@ -53,7 +53,7 @@ class openai_compatible_client extends client_base {
      * @return string
      */
     public function default_model(): string {
-        return $this->provider === 'deepseek' ? 'deepseek-chat' : 'gpt-4.1-mini';
+        return $this->provider === 'deepseek' ? 'deepseek-flash' : 'gpt-4.1-mini';
     }
 
     /**
@@ -104,17 +104,17 @@ class openai_compatible_client extends client_base {
             'model' => $request->model,
             'messages' => $messages,
         ];
-        // OpenAI reasoning models (gpt-5*, o1/o3/o4*) reject any temperature
+        // OpenAI reasoning models (gpt-5*, gpt-6*, o1/o3/o4*) reject any temperature
         // other than the default, so the parameter must be omitted for them.
         // DeepSeek shares this adapter but is deliberately excluded: it has no
         // effort parameter -- reasoning is chosen by picking deepseek-reasoner
         // instead of deepseek-chat -- so the neutral effort is a no-op there.
         $reasoningmodel = $this->provider === 'openai'
-            && preg_match('/^(gpt-5|o\d)/', strtolower($request->model)) === 1;
+            && preg_match('/^(gpt-[56]|o\d)/', strtolower($request->model)) === 1;
         if (!$reasoningmodel) {
             $payload['temperature'] = $request->temperature;
         } else if (self::rejects_tools_with_reasoning($request->model) && !empty($request->tools)) {
-            // The gpt-5.6 family refuses function tools combined with a reasoning
+            // The gpt-5.6 and gpt-6 families refuse function tools combined with a reasoning
             // effort on this endpoint, and says exactly what to do instead:
             // "Function tools with reasoning_effort are not supported for
             // gpt-5.6-luna in /v1/chat/completions. To use function tools, use
@@ -211,7 +211,7 @@ class openai_compatible_client extends client_base {
      * @return bool
      */
     private static function rejects_tools_with_reasoning(string $model): bool {
-        return preg_match('/^gpt-5\.6/', strtolower($model)) === 1;
+        return preg_match('/^gpt-(5\.6|6)/', strtolower($model)) === 1;
     }
 
     /**
