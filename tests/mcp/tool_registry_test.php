@@ -185,7 +185,12 @@ final class tool_registry_test extends \advanced_testcase {
             'section' => 1,
         ]);
         $cmid = $this->modules['forum26']->cmid;
-        moveto_module(get_coursemodule_from_id('', $cmid), $section);
+        if (method_exists(\core_courseformat\local\cmactions::class, 'move_end_section')) {
+            // Moodle 5.2 deprecated moveto_module() in favour of cmactions.
+            (new \core_courseformat\local\cmactions($this->course))->move_end_section($cmid, (int)$section->id);
+        } else {
+            moveto_module(get_coursemodule_from_id('', $cmid), $section);
+        }
 
         $DB->set_field('course_sections', 'availability', json_encode([
             'op' => '&',

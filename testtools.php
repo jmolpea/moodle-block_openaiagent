@@ -163,38 +163,40 @@ $rcourseid = optional_param('rcourseid', 0, PARAM_INT);
 $rblockid = optional_param('rblockid', 0, PARAM_INT);
 $rquery = optional_param('rquery', '', PARAM_TEXT);
 
-echo html_writer::start_tag('form', ['method' => 'get', 'action' => $url->out(false), 'class' => 'form-inline']);
+echo html_writer::start_tag('form', ['method' => 'get', 'action' => $url->out(false), 'class' => 'oaa-inlineform']);
 echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'sesskey', 'value' => sesskey()]);
+echo html_writer::start_div('oaa-inlineform__field');
 echo html_writer::tag('label', get_string('testtools_retrieval_course', 'block_openaiagent') . ' ', [
     'for' => 'oaa_rcourseid',
-    'class' => 'mr-1',
 ]);
 echo html_writer::empty_tag('input', [
     'type' => 'number',
     'id' => 'oaa_rcourseid',
     'name' => 'rcourseid',
     'value' => $rcourseid ?: '',
-    'class' => 'form-control mr-2',
+    'class' => 'form-control',
     'style' => 'width:8em',
 ]);
+echo html_writer::end_div();
+echo html_writer::start_div('oaa-inlineform__field');
 echo html_writer::tag('label', get_string('testtools_retrieval_block', 'block_openaiagent') . ' ', [
     'for' => 'oaa_rblockid',
-    'class' => 'mr-1',
 ]);
 echo html_writer::empty_tag('input', [
     'type' => 'number',
     'id' => 'oaa_rblockid',
     'name' => 'rblockid',
     'value' => $rblockid ?: '',
-    'class' => 'form-control mr-2',
+    'class' => 'form-control',
     'style' => 'width:8em',
 ]);
+echo html_writer::end_div();
 echo html_writer::empty_tag('input', [
     'type' => 'text',
     'name' => 'rquery',
     'value' => $rquery,
     'placeholder' => get_string('testtools_retrieval_query', 'block_openaiagent'),
-    'class' => 'form-control mr-2',
+    'class' => 'form-control',
     'style' => 'width:28em',
 ]);
 echo html_writer::tag('button', get_string('testtools_retrieval_run', 'block_openaiagent'), [
@@ -264,33 +266,36 @@ $scourseid = optional_param('scourseid', 0, PARAM_INT);
 $suserid = optional_param('suserid', 0, PARAM_INT);
 $ssection = optional_param('ssection', -1, PARAM_INT);
 
-echo html_writer::start_tag('form', ['method' => 'get', 'action' => $url->out(false), 'class' => 'form-inline']);
+echo html_writer::start_tag('form', ['method' => 'get', 'action' => $url->out(false), 'class' => 'oaa-inlineform']);
 echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'sesskey', 'value' => sesskey()]);
+echo html_writer::start_div('oaa-inlineform__field');
 echo html_writer::tag('label', get_string('testtools_access_courseid', 'block_openaiagent') . ' ', [
     'for' => 'oaa_scourseid',
-    'class' => 'mr-1',
 ]);
 echo html_writer::empty_tag('input', [
     'type' => 'number', 'id' => 'oaa_scourseid', 'name' => 'scourseid', 'value' => $scourseid ?: '',
-    'class' => 'form-control mr-2', 'style' => 'width:8em',
+    'class' => 'form-control', 'style' => 'width:8em',
 ]);
+echo html_writer::end_div();
+echo html_writer::start_div('oaa-inlineform__field');
 echo html_writer::tag('label', get_string('testtools_access_userid', 'block_openaiagent') . ' ', [
     'for' => 'oaa_suserid',
-    'class' => 'mr-1',
 ]);
 echo html_writer::empty_tag('input', [
     'type' => 'number', 'id' => 'oaa_suserid', 'name' => 'suserid', 'value' => $suserid ?: '',
-    'class' => 'form-control mr-2', 'style' => 'width:8em',
+    'class' => 'form-control', 'style' => 'width:8em',
 ]);
+echo html_writer::end_div();
+echo html_writer::start_div('oaa-inlineform__field');
 echo html_writer::tag('label', get_string('testtools_access_section', 'block_openaiagent') . ' ', [
     'for' => 'oaa_ssection',
-    'class' => 'mr-1',
 ]);
 echo html_writer::empty_tag('input', [
     'type' => 'number', 'id' => 'oaa_ssection', 'name' => 'ssection',
     'value' => $ssection >= 0 ? $ssection : '',
-    'class' => 'form-control mr-2', 'style' => 'width:8em',
+    'class' => 'form-control', 'style' => 'width:8em',
 ]);
+echo html_writer::end_div();
 echo html_writer::tag('button', get_string('testtools_access_run', 'block_openaiagent'), [
     'type' => 'submit',
     'class' => 'btn btn-secondary',

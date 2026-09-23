@@ -25,12 +25,11 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'block_openaiagent';
-$plugin->version = 2026092301;
+$plugin->version = 2026092302;
 $plugin->requires = 2024100700; // Moodle 4.5.
-// Only 4.5 is declared because only 4.5 has been tested end to end. Moodle
-// 5.x moved the web root into public/ and requires PHP 8.3; the plugin shows
-// no removed APIs against it, but promising a version nobody has run is how
-// refunds happen. Raise the ceiling once 5.x is actually exercised.
-$plugin->supported = [405, 405];
+// Every branch in this range is exercised by CI and was run end to end before
+// release. Do not raise the ceiling without doing the same for the new one:
+// promising a version nobody has run is how refunds happen.
+$plugin->supported = [405, 502];
 $plugin->maturity = MATURITY_STABLE;
-$plugin->release = '4.16.0';
+$plugin->release = '4.17.0';

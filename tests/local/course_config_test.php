@@ -51,6 +51,51 @@ final class course_config_test extends \advanced_testcase {
     }
 
     /**
+     * Moodle 5.1+: "Allow AI tools for this course" set to No switches the plugin off.
+     */
+    public function test_core_ai_switch_is_honoured(): void {
+        global $DB;
+        if (!method_exists(\core_ai\manager::class, 'is_ai_tools_enabled_in_course')) {
+            $this->markTestSkipped('The per-course AI switch exists from Moodle 5.1.');
+        }
+        $this->resetAfterTest();
+        $course = $this->getDataGenerator()->create_course();
+
+        // Never touched: core stores null, which means allowed.
+        $DB->set_field('course', 'enableaitools', null, ['id' => $course->id]);
+        $this->assertTrue(course_config::core_ai_allows($course->id));
+
+        $DB->set_field('course', 'enableaitools', 0, ['id' => $course->id]);
+        $this->assertFalse(course_config::core_ai_allows($course->id));
+
+        $DB->set_field('course', 'enableaitools', 1, ['id' => $course->id]);
+        $this->assertTrue(course_config::core_ai_allows($course->id));
+    }
+
+    /**
+     * Before Moodle 5.1 there is no switch to honour, so AI is always allowed.
+     */
+    public function test_core_ai_allows_everything_before_moodle_51(): void {
+        if (method_exists(\core_ai\manager::class, 'is_ai_tools_enabled_in_course')) {
+            $this->markTestSkipped('This Moodle has the per-course AI switch.');
+        }
+        $this->resetAfterTest();
+        $course = $this->getDataGenerator()->create_course();
+        $this->assertTrue(course_config::core_ai_allows($course->id));
+    }
+
+    /**
+     * An id that is not a course is left to the other gates, not read as "AI off".
+     *
+     * Core's helper treats a missing course as disabled; passing that through
+     * would switch the block off for a stale reference without saying why.
+     */
+    public function test_missing_course_is_not_read_as_disabled(): void {
+        $this->resetAfterTest();
+        $this->assertTrue(course_config::core_ai_allows(999999));
+    }
+
+    /**
      * save() then resolve() round-trips course values and never yields nulls
      * for string fields.
      */

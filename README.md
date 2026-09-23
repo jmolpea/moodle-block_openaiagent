@@ -33,8 +33,9 @@ When the period ends, request a site licence key at **julio@rsmax.es**.
 
 ## Requirements
 
-- Moodle 4.5 LTS (the only version the plugin declares support for)
-- PHP 8.1+ with the `openssl` and `curl` extensions
+- Moodle 4.5 LTS, 5.0, 5.1 or 5.2
+- The PHP version your Moodle requires (8.1+ for 4.5, 8.2+ for 5.0 and 5.1,
+  8.3+ for 5.2) with the `openssl` and `curl` extensions
 - An API key from at least one supported AI provider — **you bring your own and
   pay your provider directly**
 - Working outbound email, if you use support escalation
@@ -51,8 +52,24 @@ No Composer step. No build step. Install the ZIP and go.
    your AI provider and paste its API key. Save, so the model lists rebuild.
 4. Add the block to a course and open **Assistant configuration**.
 
-*Alternatively*, unzip into `blocks/` so the plugin sits at `blocks/openaiagent/`,
-then visit **Site administration → Notifications**.
+*Alternatively*, unzip it by hand and visit **Site administration →
+Notifications**. On Moodle 4.5 and 5.0 the plugin goes in `blocks/openaiagent/`;
+from Moodle 5.1 the code lives under `public/`, so it goes in
+`public/blocks/openaiagent/`.
+
+**Upgrading a site from 4.5 or 5.0 to 5.1 or later:** move the plugin to
+`public/blocks/openaiagent/` together with the rest of the site code. If Moodle
+lists it as *Missing from disk*, put the folder in place and reload; do **not**
+choose *Uninstall*, which deletes its tables — conversations, support requests
+and every course's assistant configuration.
+
+### Moodle's own AI switch (5.1 and later)
+
+From Moodle 5.1 a course can set **Allow AI tools for this course** to *No*
+(course settings → *AI tools*). The plugin honours it: the block shows a notice
+instead of the chat, messages are refused, and the course documents are not
+sent to the embeddings provider. Moodle only shows that setting when one of its
+own AI providers is enabled.
 
 ## Site settings
 

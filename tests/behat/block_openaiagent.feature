@@ -38,6 +38,35 @@ Feature: Place the Smart Tutor & Support AI block in a course
     When I am on "Project Managing" course homepage
     Then I should see "The assistant is not configured" in the "Smart Tutor & Support AI" "block"
 
+  Scenario: With Moodle's AI tools allowed for the course, the chat is offered
+    Given the following config values are set as admin:
+      | enabled | 1        | block_openaiagent |
+      | apikey  | test-key | block_openaiagent |
+    And Moodle AI tools are enabled in the "PM101" course
+    And I log in as "student1"
+    When I am on "Project Managing" course homepage
+    Then I should see "How can I help you today?" in the "Smart Tutor & Support AI" "block"
+    And I should not see "The assistant is not available in this course." in the "Smart Tutor & Support AI" "block"
+
+  Scenario: With Moodle's AI tools turned off for the course, a student gets a notice instead of the chat
+    Given the following config values are set as admin:
+      | enabled | 1        | block_openaiagent |
+      | apikey  | test-key | block_openaiagent |
+    And Moodle AI tools are disabled in the "PM101" course
+    And I log in as "student1"
+    When I am on "Project Managing" course homepage
+    Then I should see "The assistant is not available in this course." in the "Smart Tutor & Support AI" "block"
+    And I should not see "How can I help you today?" in the "Smart Tutor & Support AI" "block"
+
+  Scenario: With Moodle's AI tools turned off for the course, a teacher is told where to turn them back on
+    Given the following config values are set as admin:
+      | enabled | 1        | block_openaiagent |
+      | apikey  | test-key | block_openaiagent |
+    And Moodle AI tools are disabled in the "PM101" course
+    And I log in as "teacher1"
+    When I am on "Project Managing" course homepage
+    Then I should see "Allow AI tools for this course" in the "Smart Tutor & Support AI" "block"
+
   Scenario: An administrator reaches the plugin settings and finds the licence field
     Given I log in as "admin"
     When I visit "/admin/settings.php?section=blocksettingopenaiagent"

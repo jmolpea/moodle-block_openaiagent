@@ -120,6 +120,13 @@ class orchestrator {
             return self::error_result('error_assistantdisabled', $conversationid);
         }
 
+        // Moodle 5.1+ per-course AI switch. Checked here as well as in the block so
+        // a direct web-service call cannot reach the provider for a course whose
+        // teacher turned AI tools off.
+        if (!course_config::core_ai_allows($courseid)) {
+            return self::error_result('error_aitoolsdisabled', $conversationid);
+        }
+
         // Guardrails.
         $guard = guardrails::check($rawmessage);
         if (!$guard->allowed) {

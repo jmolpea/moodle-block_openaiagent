@@ -945,6 +945,28 @@ final class orchestrator_test extends \advanced_testcase {
     }
 
     /**
+     * Moodle 5.1+: with AI tools disabled for the course, nothing reaches the provider.
+     */
+    public function test_core_ai_switch_off_short_circuits(): void {
+        global $DB;
+        if (!method_exists(\core_ai\manager::class, 'is_ai_tools_enabled_in_course')) {
+            $this->markTestSkipped('The per-course AI switch exists from Moodle 5.1.');
+        }
+        $course = $this->baseline();
+        $DB->set_field('course', 'enableaitools', 0, ['id' => $course->id]);
+
+        $user = $this->getDataGenerator()->create_user();
+        $fake = new fake_client();
+
+        $orchestrator = new orchestrator($fake);
+        $result = $orchestrator->handle_message($course->id, $user->id, 'Hello');
+
+        $this->assertFalse($result['success']);
+        $this->assertSame('error_aitoolsdisabled', $result['errorcode']);
+        $this->assertCount(0, $fake->requests);
+    }
+
+    /**
      * An empty message is blocked by guardrails before any model call.
      */
     public function test_guardrail_blocks_empty_message(): void {

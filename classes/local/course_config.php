@@ -99,6 +99,33 @@ class course_config {
     }
 
     /**
+     * Whether Moodle's own "Allow AI tools for this course" setting permits AI here.
+     *
+     * Moodle 5.1 added a per-course AI switch (course.enableaitools). The plugin
+     * talks to its providers directly rather than through core_ai, so core would
+     * never stop it; a teacher who sets that switch to "No" expects every AI tool
+     * in the course to go quiet, this one included. On Moodle 4.5 and 5.0 the
+     * switch does not exist and this always returns true.
+     *
+     * Core's helper reads a missing course as "disabled", so the course context is
+     * resolved first: an id that is not a course (e.g. a stale reference) is left
+     * to the plugin's other gates rather than silently switching the block off.
+     *
+     * @param int $courseid Course id.
+     * @return bool False only when Moodle 5.1+ has AI tools disabled for the course.
+     */
+    public static function core_ai_allows(int $courseid): bool {
+        if (!method_exists(\core_ai\manager::class, 'is_ai_tools_enabled_in_course')) {
+            return true;
+        }
+        $context = \context_course::instance($courseid, IGNORE_MISSING);
+        if (!$context) {
+            return true;
+        }
+        return \core_ai\manager::is_ai_tools_enabled_in_course($context);
+    }
+
+    /**
      * Whether this profile stores the text of its conversations.
      *
      * Reads the single column rather than going through resolve(), which also

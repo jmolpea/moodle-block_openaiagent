@@ -1135,3 +1135,43 @@
     line-height: 1.5;
     margin-top: 6px;
 }
+
+/* Text for screen readers only. Bootstrap 4 (Moodle 4.5) calls this sr-only and
+   Bootstrap 5 (Moodle 5.x) visually-hidden; neither exists in both, so the
+   plugin carries its own. */
+.openaiagent-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* One-row forms on the support report and the test tools. Replaces Bootstrap 4's
+   form-inline and mr-* utilities, which Bootstrap 5 dropped. Each label sits
+   above its own field, so the two stay together however the row wraps. */
+.oaa-inlineform {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.5rem 1rem;
+}
+
+.oaa-inlineform__field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.oaa-inlineform__field label {
+    margin: 0;
+}
+
+.oaa-inlineform__actions {
+    display: flex;
+    gap: 0.25rem;
+}

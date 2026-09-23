@@ -111,23 +111,28 @@ $presetoptions = [
     'year' => get_string('analytics_range_year', 'block_openaiagent'),
 ];
 
+// Bootstrap 4 (Moodle 4.5) styles a select as custom-select; Bootstrap 5
+// (Moodle 5.0+) renamed it form-select and keeps the old name only as a
+// deprecated alias that Moodle 6.0 removes.
+$selectclass = (int)$CFG->branch >= 500 ? 'form-select' : 'custom-select';
+
 echo html_writer::start_tag('form', ['method' => 'get', 'action' => $url->out(false), 'class' => 'mb-3']);
-echo html_writer::start_div('form-inline d-flex flex-wrap align-items-end');
+echo html_writer::start_div('oaa-inlineform');
 
 echo html_writer::div(
-    html_writer::label(get_string('supportreport_period', 'block_openaiagent'), 'preset', true, ['class' => 'mr-1'])
-    . html_writer::select($presetoptions, 'preset', $preset, false, ['id' => 'preset', 'class' => 'custom-select']),
-    'mr-3 mb-2'
+    html_writer::label(get_string('supportreport_period', 'block_openaiagent'), 'preset', true)
+    . html_writer::select($presetoptions, 'preset', $preset, false, ['id' => 'preset', 'class' => $selectclass]),
+    'oaa-inlineform__field'
 );
 
 echo html_writer::div(
-    html_writer::label(get_string('analytics_support_status', 'block_openaiagent'), 'status', true, ['class' => 'mr-1'])
-    . html_writer::select($statusoptions, 'status', $status, false, ['id' => 'status', 'class' => 'custom-select']),
-    'mr-3 mb-2'
+    html_writer::label(get_string('analytics_support_status', 'block_openaiagent'), 'status', true)
+    . html_writer::select($statusoptions, 'status', $status, false, ['id' => 'status', 'class' => $selectclass]),
+    'oaa-inlineform__field'
 );
 
 echo html_writer::div(
-    html_writer::label(get_string('supportreport_search', 'block_openaiagent'), 'name', true, ['class' => 'mr-1'])
+    html_writer::label(get_string('supportreport_search', 'block_openaiagent'), 'name', true)
     . html_writer::empty_tag('input', [
         'type' => 'text',
         'id' => 'name',
@@ -136,7 +141,7 @@ echo html_writer::div(
         'class' => 'form-control',
         'placeholder' => get_string('supportreport_search_placeholder', 'block_openaiagent'),
     ]),
-    'mr-3 mb-2'
+    'oaa-inlineform__field'
 );
 
 if ($courseid) {
@@ -151,7 +156,7 @@ echo html_writer::div(
     ])
     . ' '
     . html_writer::link($url, get_string('supportreport_clear', 'block_openaiagent'), ['class' => 'btn btn-secondary']),
-    'mb-2'
+    'oaa-inlineform__actions'
 );
 
 echo html_writer::end_div();

@@ -93,4 +93,69 @@ final class tutordocs_test extends \advanced_testcase {
             tutordocs::file_context($course->id, 0)->id
         );
     }
+
+    /**
+     * Configure an OpenAI embeddings provider and give the course one unembedded chunk.
+     *
+     * @param int $courseid Course id.
+     * @return int Chunk id.
+     */
+    private function make_pending_chunk(int $courseid): int {
+        global $DB;
+        set_config('embeddings_provider', 'openai', 'block_openaiagent');
+        set_config('apikey', 'test-key', 'block_openaiagent');
+        $now = time();
+        return (int)$DB->insert_record(rag::TABLE, (object) [
+            'courseid' => $courseid,
+            'contenthash' => sha1('chunk'),
+            'filename' => 'guide.pdf',
+            'citable' => 1,
+            'chunkindex' => 0,
+            'content' => 'Unit 1 introduces the project charter.',
+            'embedding' => null,
+            'embeddingmodel' => '',
+            'timecreated' => $now,
+            'timemodified' => $now,
+        ]);
+    }
+
+    /**
+     * The sweep embeds a pending chunk. Control case for the switch test below.
+     */
+    public function test_sweep_embeds_pending_chunks(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $course = $this->getDataGenerator()->create_course();
+        $chunkid = $this->make_pending_chunk($course->id);
+
+        \curl::mock_response(json_encode(['data' => [['index' => 0, 'embedding' => [0.1, 0.2, 0.3]]]]));
+        tutordocs::embed_all_pending();
+
+        $this->assertNotNull($DB->get_field(rag::TABLE, 'embedding', ['id' => $chunkid]));
+    }
+
+    /**
+     * Moodle 5.1+: with AI tools off, course documents are not sent to the provider.
+     *
+     * The chunk stays pending and is embedded by the next sweep once the switch
+     * is turned back on, which also consumes the queued mock response.
+     */
+    public function test_core_ai_switch_off_keeps_documents_local(): void {
+        global $DB;
+        if (!method_exists(\core_ai\manager::class, 'is_ai_tools_enabled_in_course')) {
+            $this->markTestSkipped('The per-course AI switch exists from Moodle 5.1.');
+        }
+        $this->resetAfterTest();
+        $course = $this->getDataGenerator()->create_course();
+        $chunkid = $this->make_pending_chunk($course->id);
+        $DB->set_field('course', 'enableaitools', 0, ['id' => $course->id]);
+
+        \curl::mock_response(json_encode(['data' => [['index' => 0, 'embedding' => [0.1, 0.2, 0.3]]]]));
+        tutordocs::embed_all_pending();
+        $this->assertNull($DB->get_field(rag::TABLE, 'embedding', ['id' => $chunkid]));
+
+        $DB->set_field('course', 'enableaitools', 1, ['id' => $course->id]);
+        tutordocs::embed_all_pending();
+        $this->assertNotNull($DB->get_field(rag::TABLE, 'embedding', ['id' => $chunkid]));
+    }
 }

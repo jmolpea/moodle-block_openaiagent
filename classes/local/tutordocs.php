@@ -298,6 +298,12 @@ class tutordocs {
         if ($model === '') {
             return;
         }
+        // Embedding sends the course documents to the provider, so it honours
+        // Moodle's per-course AI switch like a chat turn does. The chunks stay
+        // unembedded and are picked up by the sweep if the switch is turned back on.
+        if (!course_config::core_ai_allows($courseid)) {
+            return;
+        }
 
         $select = 'courseid = :courseid AND blockinstanceid = :blockinstanceid '
             . 'AND (embedding IS NULL OR embeddingmodel <> :model)';

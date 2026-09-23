@@ -93,6 +93,21 @@ class block_openaiagent extends block_base {
             return $this->content;
         }
 
+        // Moodle 5.1+ "Allow AI tools for this course". Both the course the page
+        // belongs to and the block's owning course are checked: a category
+        // assistant shown inside a course must respect that course's switch.
+        $pagecourseid = (int)$this->page->course->id;
+        if (
+            !\block_openaiagent\local\course_config::core_ai_allows($pagecourseid)
+            || !\block_openaiagent\local\course_config::core_ai_allows($courseid)
+        ) {
+            $notice = has_capability('block/openaiagent:managecourseconfig', $context)
+                ? get_string('aitoolsdisabled_staff', 'block_openaiagent')
+                : get_string('error_aitoolsdisabled', 'block_openaiagent');
+            $this->content->text = $OUTPUT->notification($notice, 'info');
+            return $this->content;
+        }
+
         // Get cosmetic configuration.
         $botname = !empty($this->config->botname)
             ? $this->config->botname

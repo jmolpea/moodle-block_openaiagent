@@ -1351,8 +1351,8 @@ EOT;
                 'timemodified' => $now,
             ]);
         }
-        foreach (['default_tutor_model', 'default_assistant_model', 'default_router_model',
-                'default_ambiguity_model'] as $name) {
+        $names = ['default_tutor_model', 'default_assistant_model', 'default_router_model', 'default_ambiguity_model'];
+        foreach ($names as $name) {
             if ((string)get_config('block_openaiagent', $name) === 'gpt-5.6-luna') {
                 set_config($name, 'gpt-6-luna', 'block_openaiagent');
             }

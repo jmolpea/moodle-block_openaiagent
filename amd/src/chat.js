@@ -504,7 +504,7 @@ define([
             dots.appendChild(document.createElement('span'));
         }
         var srlabel = document.createElement('span');
-        srlabel.className = 'sr-only';
+        srlabel.className = 'openaiagent-sr-only';
         srlabel.textContent = this.strings.thinking || '...';
         content.appendChild(dots);
         content.appendChild(srlabel);

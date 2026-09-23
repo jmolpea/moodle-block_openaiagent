@@ -7,6 +7,44 @@ usa [Versionado Semántico](https://semver.org/lang/es/).
 
 ---
 
+## [4.17.0] — 2026-09-23
+
+Compatibilidad con Moodle 5.0, 5.1 y 5.2, sin dejar de soportar 4.5 LTS: el
+mismo ZIP sirve para las cuatro versiones.
+
+### Añadido
+
+- **Se respeta el ajuste de Moodle «Permitir herramientas de IA en este curso»**
+  (Moodle 5.1+). Con el ajuste en No, el bloque muestra un aviso en lugar del
+  chat —al profesorado le explica dónde cambiarlo—, el servidor rechaza los
+  mensajes aunque lleguen por el servicio web, y los documentos del curso no se
+  envían al proveedor de *embeddings*; quedan pendientes y se procesan en cuanto
+  se reactiva. En un bloque de categoría mostrado dentro de un curso cuenta el
+  ajuste de ese curso. En Moodle 4.5 y 5.0 el ajuste no existe y no cambia nada.
+
+### Cambiado
+
+- `$plugin->supported` pasa a `[405, 502]`.
+- Sin clases de Bootstrap 4 que Moodle 5.x marca como obsoletas: el texto para
+  lectores de pantalla del indicador «pensando» usa una clase propia, los
+  formularios de filtro del informe de soporte y de las herramientas de prueba
+  usan un contenedor propio en lugar de `form-inline` y `mr-*`, y los
+  desplegables usan `custom-select` en 4.5 y `form-select` en 5.x.
+- Un test dejaba de usar `moveto_module()`, obsoleta en 5.2, cuando la API que
+  la sustituye está disponible.
+- La CI cubre Moodle 4.5, 5.0, 5.1 y 5.2 con las versiones de PHP que admite
+  cada una.
+- Tres escenarios de Behat nuevos para el ajuste de IA por curso (profesor,
+  alumno y control con el ajuste activado); se saltan en 4.5 y 5.0.
+
+### Corregido
+
+- Formato de un `foreach` en el paso de actualización de la 4.16.0
+  (`db/upgrade.php`), que hacía fallar el *Moodle Code Checker* y dejaba en rojo
+  la CI de esa versión. Sin cambio de comportamiento.
+
+---
+
 ## [4.16.0] — 2026-09-23
 
 Actualización de los modelos por defecto de los cuatro proveedores a la
