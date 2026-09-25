@@ -35,6 +35,9 @@ Feature: Use the assistant outside a course
     Given the following "blocks" exist:
       | blockname   | contextlevel | reference | pagetypepattern |
       | openaiagent | Category     | POS       | *               |
+    # The category page itself must be open to visitors, so that only the block is being tested.
+    And the following config values are set as admin:
+      | forcelogin | 0 |
     When I am on course index
     And I follow "Posgrado"
     Then I should not see "How can I help you today?"
