@@ -106,7 +106,8 @@ class send_message extends external_api {
             (int)$USER->id,
             $params['message'],
             $params['conversationid'] > 0 ? $params['conversationid'] : null,
-            $params['blockid']
+            $params['blockid'],
+            $params['blockid'] > 0 ? $scope : null
         );
 
         // The reply is stored raw (Markdown) and rendered to sanitized HTML only

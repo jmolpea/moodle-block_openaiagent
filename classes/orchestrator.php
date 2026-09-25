@@ -31,12 +31,15 @@ use block_openaiagent\ai\response;
 use block_openaiagent\local\conversation_repository;
 use block_openaiagent\local\course_config;
 use block_openaiagent\local\defaults;
+use block_openaiagent\local\platform_profile;
 use block_openaiagent\local\query_rewriter;
 use block_openaiagent\local\rag;
 use block_openaiagent\local\rate_limiter;
+use block_openaiagent\local\scope;
 use block_openaiagent\local\support_action;
 use block_openaiagent\local\support_gate;
 use block_openaiagent\local\supportrequest;
+use block_openaiagent\mcp\platform\registry as platform_registry;
 use block_openaiagent\mcp\tool_registry;
 
 /**
@@ -96,6 +99,7 @@ class orchestrator {
      * @param string $rawmessage Raw user message.
      * @param int|null $conversationid Optional conversation to continue.
      * @param int $blockinstanceid Owning block instance id (0 = course-wide default).
+     * @param scope|null $scope Scope resolved by the caller; derived from the block when null.
      * @return array {success, reply, route, conversationid, errorcode, tokens}
      */
     public function handle_message(
@@ -103,8 +107,24 @@ class orchestrator {
         int $userid,
         string $rawmessage,
         ?int $conversationid = null,
-        int $blockinstanceid = 0
+        int $blockinstanceid = 0,
+        ?scope $scope = null
     ): array {
+        // Where the assistant lives. Only a category or site block changes
+        // anything below; a course block, or no block at all, runs the course
+        // assistant exactly as before.
+        if ($scope === null && $blockinstanceid > 0) {
+            try {
+                $scope = scope::for_block($blockinstanceid, $userid);
+            } catch (\dml_missing_record_exception $e) {
+                $scope = null;
+            }
+        }
+        if ($scope !== null && $scope->type === scope::DASHBOARD) {
+            return self::error_result('error_assistantdisabled', $conversationid);
+        }
+        $platform = $scope !== null && $scope->is_platform();
+
         // License backstop: no AI turn may proceed without a valid key bound to
         // this site, so the block holds on every call path even if the block-UI
         // gate is bypassed (e.g. a direct external-function call).
@@ -140,6 +160,9 @@ class orchestrator {
         }
 
         $config = course_config::resolve($courseid, $blockinstanceid);
+        if ($platform) {
+            $config = platform_profile::apply($config, $scope);
+        }
         $conversation = conversation_repository::get_or_create($conversationid, $userid, $courseid, $blockinstanceid);
 
         // Per-course agent toggles. Disabling one content agent turns the block
@@ -820,6 +843,11 @@ class orchestrator {
         }
 
         $tools = self::function_tools($toolnames);
+        if (isset($config['scope'])) {
+            // A platform assistant: its own tools first, then any course or
+            // support tools it also carries, which function_tools() described.
+            $tools = array_merge(platform_registry::function_tools($config['scope'], $toolnames), $tools);
+        }
 
         // A per-course assistant prompt overrides the default agent prompt.
         $baseprompt = $config['assistantprompt'] !== '' ? $config['assistantprompt'] : $agent->baseprompt;
@@ -1175,7 +1203,7 @@ class orchestrator {
             // Feed the tool calls and their locally-executed results back in.
             $request->add_assistant_message($response->text, $response->toolcalls);
             foreach ($response->toolcalls as $call) {
-                $output = self::execute_tool_call($call, $allowed, $userid, $courseid, $conversation);
+                $output = self::execute_tool_call($call, $allowed, $userid, $courseid, $conversation, $config['scope'] ?? null);
                 self::note_tool_failure($call, $output, $toolfailures);
                 $request->add_tool_result((string)$call['id'], (string)$call['name'], $output);
             }
@@ -1197,7 +1225,7 @@ class orchestrator {
             // data and it is what the final answer will be built from.
             $request->add_assistant_message($response->text, $response->toolcalls);
             foreach ($response->toolcalls as $call) {
-                $output = self::execute_tool_call($call, $allowed, $userid, $courseid, $conversation);
+                $output = self::execute_tool_call($call, $allowed, $userid, $courseid, $conversation, $config['scope'] ?? null);
                 self::note_tool_failure($call, $output, $toolfailures);
                 $request->add_tool_result((string)$call['id'], (string)$call['name'], $output);
             }
@@ -1392,6 +1420,7 @@ class orchestrator {
      * @param int $userid Authoritative user id.
      * @param int $courseid Authoritative course id.
      * @param \stdClass|null $conversation Conversation the call belongs to, when there is one.
+     * @param scope|null $scope Platform scope; null for a course assistant.
      * @return string JSON-encoded tool output (or error object).
      */
     private static function execute_tool_call(
@@ -1399,8 +1428,13 @@ class orchestrator {
         array $allowednames,
         int $userid,
         int $courseid,
-        ?\stdClass $conversation = null
+        ?\stdClass $conversation = null,
+        ?scope $scope = null
     ): string {
+        if ($scope !== null && $scope->is_platform()) {
+            return self::execute_platform_tool_call($call, $allowednames, $scope, $conversation);
+        }
+
         $toolname = str_replace('__', '.', (string)($call['name'] ?? ''));
         $arguments = is_array($call['arguments'] ?? null) ? $call['arguments'] : [];
         $debug = (int)get_config('block_openaiagent', 'debugmode') === 1;
@@ -1451,6 +1485,87 @@ class orchestrator {
                 . '; result=' . $encoded, DEBUG_DEVELOPER);
         }
 
+        return $encoded;
+    }
+
+    /**
+     * Execute one model tool call for a category or site assistant.
+     *
+     * Kept apart from execute_tool_call() so the course assistant's path does
+     * not change. Platform tools run through their own registry, as the session
+     * user. The support tools run against the owning (site) course, as they
+     * always have for these blocks. Course tools only exist here when the block
+     * is shown inside a course the user is actively enrolled in, and they are
+     * bound to that validated course, never to one the model names.
+     *
+     * @param array $call Tool call ['id', 'name', 'arguments'].
+     * @param string[] $allowednames Names executable this turn.
+     * @param scope $scope Platform scope.
+     * @param \stdClass|null $conversation Conversation the call belongs to.
+     * @return string JSON-encoded tool output (or error object).
+     */
+    private static function execute_platform_tool_call(
+        array $call,
+        array $allowednames,
+        scope $scope,
+        ?\stdClass $conversation
+    ): string {
+        $toolname = str_replace('__', '.', (string)($call['name'] ?? ''));
+        $arguments = is_array($call['arguments'] ?? null) ? $call['arguments'] : [];
+        $debug = (int)get_config('block_openaiagent', 'debugmode') === 1;
+        $supporttools = ['moodle.support_request_draft', 'moodle.support_request_status', 'moodle.get_support_link'];
+
+        $notavailable = !in_array($toolname, $allowednames, true);
+        $courseid = $scope->courseid;
+        if (!$notavailable && !platform_registry::is_platform_tool($toolname)) {
+            if (in_array($toolname, $supporttools, true)) {
+                $notavailable = $scope->userid <= 0;
+            } else {
+                $notavailable = $scope->pagecourseid <= 0 || !$scope->pagecourseenrolled;
+                $courseid = $scope->pagecourseid;
+            }
+        }
+        if ($notavailable) {
+            if ($debug) {
+                debugging(
+                    'block_openaiagent platform tool call: name=' . $toolname . '; result=tool_not_available',
+                    DEBUG_DEVELOPER
+                );
+            }
+            return json_encode(['error' => 'tool_not_available']);
+        }
+
+        try {
+            if (platform_registry::is_platform_tool($toolname)) {
+                $result = platform_registry::call($toolname, $arguments, $scope);
+            } else {
+                $arguments['user_id'] = $scope->userid;
+                $arguments['course_id'] = $courseid;
+                unset($arguments['mcp_session_token']);
+                $result = tool_registry::call($toolname, $arguments, $scope->userid, $courseid, [
+                    'conversationid' => (int)($conversation->id ?? 0),
+                    'blockinstanceid' => $scope->blockinstanceid,
+                ]);
+            }
+        } catch (\Throwable $e) {
+            if ($debug) {
+                debugging('block_openaiagent platform tool call: name=' . $toolname
+                    . '; EXCEPTION ' . get_class($e) . ': ' . $e->getMessage(), DEBUG_DEVELOPER);
+            }
+            return json_encode(['error' => 'tool_failed']);
+        }
+
+        // Same encoding as the course path: unescaped slashes and Unicode, capped.
+        $encoded = json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if ($encoded === false) {
+            return json_encode(['error' => 'tool_failed']);
+        }
+        if (\core_text::strlen($encoded) > self::MAX_TOOL_RESULT_CHARS) {
+            $encoded = \core_text::substr($encoded, 0, self::MAX_TOOL_RESULT_CHARS);
+        }
+        if ($debug) {
+            debugging('block_openaiagent platform tool call: name=' . $toolname . '; result=' . $encoded, DEBUG_DEVELOPER);
+        }
         return $encoded;
     }
 
@@ -1618,7 +1733,9 @@ class orchestrator {
         // prompt, so the agents can greet the participant and name the course
         // without spending a tool call.
         if ($route !== 'router') {
-            $identity = self::identity_directive($conversation);
+            $identity = isset($config['scope'])
+                ? self::platform_identity_directive($config['scope'])
+                : self::identity_directive($conversation);
             if ($identity !== '') {
                 $parts[] = $identity;
             }
@@ -1838,6 +1955,48 @@ class orchestrator {
         return 'Context (authoritative, provided by Moodle): ' . implode('; ', $bits)
             . '. Use these directly when addressing the user or referring to the course; '
             . 'do not call a tool to look them up.';
+    }
+
+    /**
+     * Identity line for a category or site assistant.
+     *
+     * The course identity line would name the site course as "the current
+     * course", which is wrong outside a course. This one names where the
+     * assistant lives and, when the block is shown inside a course, that course
+     * and whether the participant is enrolled in it. Same data-minimisation rule:
+     * the first name only.
+     *
+     * @param scope $scope Platform scope.
+     * @return string
+     */
+    private static function platform_identity_directive(scope $scope): string {
+        global $DB, $SITE;
+
+        $bits = [];
+        $user = $scope->userid > 0 ? \core_user::get_user($scope->userid, 'firstname', IGNORE_MISSING) : null;
+        if ($user && trim((string)$user->firstname) !== '') {
+            $bits[] = 'address the participant as "' . trim((string)$user->firstname) . '" (first name only; '
+                . 'you have not been given their surname and must never guess or ask for it)';
+        }
+
+        $category = $scope->type === scope::CATEGORY
+            ? \core_course_category::get($scope->categoryid, IGNORE_MISSING, true)
+            : null;
+        $bits[] = $category
+            ? 'this assistant belongs to the course category "' . $category->get_formatted_name() . '" of the site "'
+                . format_string($SITE->fullname) . '"'
+            : 'this assistant belongs to the site "' . format_string($SITE->fullname) . '"';
+
+        if ($scope->pagecourseid > 0) {
+            $fullname = $DB->get_field('course', 'fullname', ['id' => $scope->pagecourseid]);
+            if ($fullname !== false) {
+                $bits[] = 'the participant is looking at the course "' . format_string($fullname) . '" ('
+                    . ($scope->pagecourseenrolled ? 'they are enrolled in it' : 'they are not enrolled in it')
+                    . '; course id ' . $scope->pagecourseid . ' for tool calls only)';
+            }
+        }
+        return 'Context (authoritative, provided by Moodle): ' . implode('; ', $bits)
+            . '. Use these directly; do not call a tool to look them up.';
     }
 
     /**

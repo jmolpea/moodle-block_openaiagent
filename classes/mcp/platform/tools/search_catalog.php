@@ -24,6 +24,7 @@
 
 namespace block_openaiagent\mcp\platform\tools;
 
+use block_openaiagent\local\block_settings;
 use block_openaiagent\local\scope;
 use block_openaiagent\mcp\platform\base_tool;
 use block_openaiagent\mcp\platform\catalog;
@@ -145,12 +146,25 @@ class search_catalog extends base_tool {
         }
         return [
             'query' => $query,
-            'limited_to_category' => $scope->type === scope::CATEGORY
+            'limited_to_category' => self::limited($scope)
                 ? \core_course_category::get($scope->categoryid, IGNORE_MISSING, true)?->get_formatted_name()
                 : null,
             'has_more' => $more,
             'courses' => $out,
         ];
+    }
+
+    /**
+     * Whether the catalogue is limited to the block's category tree.
+     *
+     * A category assistant is limited by default; its settings can open it to
+     * the whole site catalogue.
+     *
+     * @param scope $scope Turn scope.
+     * @return bool
+     */
+    private static function limited(scope $scope): bool {
+        return $scope->type === scope::CATEGORY && block_settings::catalog_limited_to_category($scope->blockinstanceid);
     }
 
     /**
@@ -166,7 +180,7 @@ class search_catalog extends base_tool {
         if ($query !== '') {
             return \core_course_category::search_courses(['search' => $query], $options);
         }
-        $root = $scope->type === scope::CATEGORY
+        $root = self::limited($scope)
             ? \core_course_category::get($scope->categoryid, IGNORE_MISSING)
             : \core_course_category::top();
         if (!$root) {
@@ -188,7 +202,7 @@ class search_catalog extends base_tool {
         if ((int)$course->id === (int)SITEID || !catalog::may_see($record, $scope->userid)) {
             return false;
         }
-        if ($scope->type === scope::CATEGORY && !catalog::in_category_tree($record, $scope->categoryid)) {
+        if (self::limited($scope) && !catalog::in_category_tree($record, $scope->categoryid)) {
             return false;
         }
         $ended = (int)$course->enddate > 0 && (int)$course->enddate < time();
