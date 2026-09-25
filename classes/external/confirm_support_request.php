@@ -30,6 +30,7 @@ use core_external\external_single_structure;
 use core_external\external_value;
 use block_openaiagent\local\conversation_repository;
 use block_openaiagent\local\course_config;
+use block_openaiagent\local\scope;
 use block_openaiagent\local\support_gate;
 use block_openaiagent\local\supportrequest;
 
@@ -68,7 +69,7 @@ class confirm_support_request extends external_api {
      * @return array
      */
     public static function execute(int $courseid, int $draftid, string $token, bool $confirm): array {
-        global $USER;
+        global $DB, $USER;
 
         $params = self::validate_parameters(self::execute_parameters(), [
             'courseid' => $courseid,
@@ -77,10 +78,37 @@ class confirm_support_request extends external_api {
             'confirm' => $confirm,
         ]);
 
-        $context = \context_course::instance($params['courseid']);
-        self::validate_context($context);
-        require_capability('block/openaiagent:use', $context);
-        require_capability('block/openaiagent:requestsupport', $context);
+        // A category or site assistant keys its drafts under the site course,
+        // where participants hold no course role, so its checks run in the
+        // assistant's own block context. Looked up without claiming the draft,
+        // and only for the user's own drafts: an unknown id simply falls through
+        // to the course checks below and gets the usual answer.
+        $scope = null;
+        if ($params['courseid'] === (int)SITEID) {
+            $blockid = (int)$DB->get_field(
+                'block_openaiagent_supportreq',
+                'blockinstanceid',
+                ['id' => $params['draftid'], 'userid' => (int)$USER->id]
+            );
+            if ($blockid > 0) {
+                try {
+                    $scope = scope::for_block($blockid, (int)$USER->id);
+                } catch (\dml_missing_record_exception $e) {
+                    $scope = null;
+                }
+            }
+        }
+        if ($scope !== null && $scope->is_platform()) {
+            $context = $scope->context;
+            self::validate_context($context);
+            require_capability('block/openaiagent:use', $context);
+            require_capability('block/openaiagent:requestplatformsupport', $context);
+        } else {
+            $context = \context_course::instance($params['courseid']);
+            self::validate_context($context);
+            require_capability('block/openaiagent:use', $context);
+            require_capability('block/openaiagent:requestsupport', $context);
+        }
 
         $draft = supportrequest::claim_draft($params['draftid'], (int)$USER->id, $params['token']);
         if ($draft === null) {

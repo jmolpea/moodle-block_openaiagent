@@ -778,6 +778,13 @@ class analytics {
             if (!isset($courses[$cid])) {
                 continue; // Deleted course.
             }
+            if ((int)$cid === (int)SITEID) {
+                // Category and site assistants all key their data under the site
+                // course. Merged, they would read as one meaningless "course";
+                // each one gets its own row instead.
+                $rows = array_merge($rows, self::platform_rows($range, $params, $namefilter));
+                continue;
+            }
             $course = $courses[$cid];
             if ($namefilter !== '') {
                 $hay = \core_text::strtolower($course->fullname . ' ' . $course->shortname);
@@ -815,12 +822,122 @@ class analytics {
         if ($rows) {
             $enrolled = self::exposed_participants_by_course(array_column($rows, 'courseid'));
             foreach ($rows as $row) {
+                if (!empty($row->platform)) {
+                    // Nobody is enrolled in a category or the site home.
+                    continue;
+                }
                 $row->enrolled = $enrolled[$row->courseid] ?? 0;
                 $row->adoption = $row->enrolled > 0 ? $row->users / $row->enrolled : 0.0;
             }
         }
 
         return $rows;
+    }
+
+    /**
+     * One row per category or site assistant, from the site-course rollups.
+     *
+     * @param string $range SQL condition on daterecorded (and courses), as in get_course_rows().
+     * @param array $params Its parameters.
+     * @param string $namefilter Name filter from the dashboard.
+     * @return \stdClass[]
+     */
+    protected static function platform_rows(string $range, array $params, string $namefilter): array {
+        global $DB, $SITE;
+
+        $where = "$range AND courseid = :platformsite";
+        $params['platformsite'] = (int)SITEID;
+
+        $usage = $DB->get_records_sql(
+            "SELECT blockinstanceid, SUM(numquestions) AS questions, COUNT(DISTINCT userid) AS users
+               FROM {" . self::USERSTATS . "} WHERE $where GROUP BY blockinstanceid",
+            $params
+        );
+        $errrows = $DB->get_records_sql(
+            "SELECT blockinstanceid,
+                    SUM(CASE WHEN role = 'assistant' THEN nummessages ELSE 0 END) AS answers,
+                    SUM(CASE WHEN role = 'assistant' THEN numerrors ELSE 0 END) AS errors,
+                    SUM(totaltokens) AS tokens
+               FROM {" . self::MSGSTATS . "} WHERE $where GROUP BY blockinstanceid",
+            $params
+        );
+        $recur = $DB->get_records_sql(
+            "SELECT blockinstanceid, COUNT(*) AS n FROM (
+                SELECT blockinstanceid, userid, COUNT(DISTINCT daterecorded) AS days
+                  FROM {" . self::USERSTATS . "} WHERE $where
+                 GROUP BY blockinstanceid, userid
+             ) sub WHERE days >= 2 GROUP BY blockinstanceid",
+            $params
+        );
+
+        $rows = [];
+        foreach ($usage as $blockid => $u) {
+            $blockid = (int)$blockid;
+            [$name, $kind, $url] = self::platform_label($blockid, $SITE);
+            if ($namefilter !== '') {
+                $hay = \core_text::strtolower($name . ' ' . $kind);
+                if (\core_text::strpos($hay, \core_text::strtolower($namefilter)) === false) {
+                    continue;
+                }
+            }
+            $answers = isset($errrows[$blockid]) ? (int)$errrows[$blockid]->answers : 0;
+            $errors = isset($errrows[$blockid]) ? (int)$errrows[$blockid]->errors : 0;
+            $rows[] = (object)[
+                'courseid' => (int)SITEID,
+                'blockinstanceid' => $blockid,
+                'platform' => true,
+                'url' => $url,
+                'fullname' => $name,
+                'shortname' => $kind,
+                'users' => (int)$u->users,
+                'questions' => (int)$u->questions,
+                'enrolled' => null,
+                'adoption' => null,
+                'recurrent' => isset($recur[$blockid]) ? (int)$recur[$blockid]->n : 0,
+                'answers' => $answers,
+                'errors' => $errors,
+                'errorrate' => $answers > 0 ? $errors / $answers : 0.0,
+                'tokens' => isset($errrows[$blockid]) ? (int)$errrows[$blockid]->tokens : 0,
+            ];
+        }
+        return $rows;
+    }
+
+    /**
+     * Name, kind and link of a category or site assistant.
+     *
+     * @param int $blockid Block instance id.
+     * @param \stdClass $site The site record.
+     * @return array [name, kind, url or null]
+     */
+    protected static function platform_label(int $blockid, \stdClass $site): array {
+        global $DB;
+
+        $block = $blockid > 0 ? $DB->get_record('block_instances', ['id' => $blockid], 'id, parentcontextid, configdata') : false;
+        if (!$block) {
+            return [get_string('analytics_assistant_removed', 'block_openaiagent'), '', null];
+        }
+
+        $botname = '';
+        if (!empty($block->configdata)) {
+            $config = unserialize_object(base64_decode($block->configdata));
+            $botname = is_object($config) && !empty($config->botname) ? format_string($config->botname) : '';
+        }
+        $parent = \context::instance_by_id((int)$block->parentcontextid, IGNORE_MISSING);
+        if ($parent && $parent->contextlevel == CONTEXT_COURSECAT) {
+            $category = \core_course_category::get((int)$parent->instanceid, IGNORE_MISSING, true);
+            $name = $category ? $category->get_formatted_name() : get_string('analytics_assistant_removed', 'block_openaiagent');
+            $url = (new \moodle_url('/course/index.php', ['categoryid' => $parent->instanceid]))->out(false);
+            $kind = get_string('analytics_assistant_category', 'block_openaiagent');
+        } else {
+            $name = format_string($site->fullname);
+            $url = (new \moodle_url('/'))->out(false);
+            $kind = get_string('analytics_assistant_site', 'block_openaiagent');
+        }
+        if ($botname !== '') {
+            $kind .= ' · ' . $botname;
+        }
+        return [$name, $kind, $url];
     }
 
     /**

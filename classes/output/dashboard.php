@@ -552,17 +552,22 @@ class dashboard {
 
         $rows = '';
         foreach ($courses as $c) {
-            $courseurl = new \moodle_url('/course/view.php', ['id' => $c->courseid]);
-            $adoptw = round(min(1, $c->adoption) * 100, 2);
-            $adoptbar = '<div class="oaa-inlinebar"><span style="width:' . $adoptw . '%"></span>'
-                . '<em>' . self::pct($c->adoption) . '</em></div>';
+            // Category and site assistants have their own row, link and no enrolment.
+            $courseurl = !empty($c->url) ? $c->url : (new \moodle_url('/course/view.php', ['id' => $c->courseid]))->out(false);
+            if ($c->adoption === null) {
+                $adoptbar = '—';
+            } else {
+                $adoptw = round(min(1, $c->adoption) * 100, 2);
+                $adoptbar = '<div class="oaa-inlinebar"><span style="width:' . $adoptw . '%"></span>'
+                    . '<em>' . self::pct($c->adoption) . '</em></div>';
+            }
             $errcls = self::error_state($c->errorrate);
             $rows .= '<tr>'
-                . '<td class="oaa-course"><a href="' . $courseurl->out(false) . '">'
+                . '<td class="oaa-course"><a href="' . s($courseurl) . '">'
                     . s(format_string($c->fullname)) . '</a>'
                     . '<span class="oaa-course__short">' . s($c->shortname) . '</span></td>'
                 . '<td class="oaa-num">' . self::int($c->users) . '</td>'
-                . '<td class="oaa-num">' . self::int($c->enrolled) . '</td>'
+                . '<td class="oaa-num">' . ($c->enrolled === null ? '—' : self::int($c->enrolled)) . '</td>'
                 . '<td>' . $adoptbar . '</td>'
                 . '<td class="oaa-num">' . self::int($c->questions) . '</td>'
                 . '<td class="oaa-num">' . self::int($c->recurrent) . '</td>'

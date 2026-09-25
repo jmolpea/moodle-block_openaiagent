@@ -174,7 +174,18 @@ class support_gate {
             return self::DENIED_DISABLED;
         }
 
-        if ($courseid <= 0 || !self::participant_may_request($courseid, $userid)) {
+        // Outside a course there are no course contacts, so a destination made
+        // only of {course_teachers} reaches nobody: the feature is off there
+        // until an address is configured. A course assistant never has the site
+        // course as its course, so this never applies to one.
+        if ($courseid === (int)SITEID) {
+            $entries = support_mailer::parse_addresses((string)$support['to']);
+            if (!array_filter($entries, static fn(string $entry): bool => !support_mailer::is_token($entry))) {
+                return self::DENIED_DISABLED;
+            }
+        }
+
+        if ($courseid <= 0 || !self::participant_may_request($courseid, $userid, $conversationid)) {
             return self::DENIED_CAPABILITY;
         }
 
@@ -214,13 +225,34 @@ class support_gate {
     /**
      * Whether the participant is allowed to raise support requests here.
      *
+     * A category or site assistant keys its data under the site course, where
+     * participants hold no course role; for those the check is the platform
+     * capability in the assistant's own block context.
+     *
      * @param int $courseid Course id.
      * @param int $userid Participant id.
+     * @param int $conversationid Conversation id, used to find a platform assistant's block.
      * @return bool
      */
-    private static function participant_may_request(int $courseid, int $userid): bool {
+    private static function participant_may_request(int $courseid, int $userid, int $conversationid = 0): bool {
+        global $DB;
+
         if ($userid <= 0 || isguestuser($userid)) {
             return false;
+        }
+
+        if ($courseid === (int)SITEID && $conversationid > 0) {
+            $blockid = (int)$DB->get_field('block_openaiagent_conversations', 'blockinstanceid', ['id' => $conversationid]);
+            if ($blockid > 0) {
+                try {
+                    $scope = scope::for_block($blockid, $userid);
+                } catch (\dml_missing_record_exception $e) {
+                    return false;
+                }
+                if ($scope->is_platform()) {
+                    return has_capability('block/openaiagent:requestplatformsupport', $scope->context, $userid);
+                }
+            }
         }
 
         try {

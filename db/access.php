@@ -96,6 +96,22 @@ $capabilities = [
             'manager' => CAP_ALLOW,
         ],
     ],
+    // Raise a support request from a category or site assistant.
+    //
+    // Separate from requestsupport, which is course-scoped and held through
+    // course roles: outside a course most participants have no role at all, so
+    // the authenticated user archetype is what lets them reach support there.
+    // Being new, it is granted on upgrade without touching existing roles, and a
+    // site can still prohibit it on a category.
+    'block/openaiagent:requestplatformsupport' => [
+        'riskbitmask' => RISK_SPAM,
+        'captype' => 'write',
+        'contextlevel' => CONTEXT_BLOCK,
+        'archetypes' => [
+            'user' => CAP_ALLOW,
+            'manager' => CAP_ALLOW,
+        ],
+    ],
     // Manage global plugin configuration (secrets, models, endpoints).
     'block/openaiagent:manageglobalconfig' => [
         'riskbitmask' => RISK_CONFIG,
