@@ -27,7 +27,10 @@ require_once(__DIR__ . '/../../config.php');
 use block_openaiagent\form\course_config_form;
 use block_openaiagent\local\course_config;
 use block_openaiagent\local\defaults;
+use block_openaiagent\local\platform_profile;
+use block_openaiagent\local\scope;
 use block_openaiagent\local\tutordocs;
+use block_openaiagent\mcp\platform\registry;
 use block_openaiagent\task\index_tutordocs_task;
 
 $courseid = required_param('courseid', PARAM_INT);
@@ -79,7 +82,21 @@ $PAGE->set_pagelayout('admin');
 $PAGE->set_title(get_string('courseconfig', 'block_openaiagent'));
 $PAGE->set_heading($scopecontext->get_context_name(false));
 
-$form = new course_config_form($url->out(false), ['courseid' => $courseid, 'blockinstanceid' => $blockinstanceid]);
+// A category or site assistant is configured with platform defaults and tools.
+$scopetype = $blockinstanceid > 0 ? scope::for_block($blockinstanceid, (int)$USER->id)->type : scope::COURSE;
+$platform = in_array($scopetype, [scope::CATEGORY, scope::SITE], true);
+
+// The tools this form offers, and therefore the only ones it may save.
+$knowntools = $scopetype === scope::SITE ? [] : defaults::default_tool_names();
+if ($platform) {
+    $knowntools = array_merge(registry::default_names(), $knowntools);
+}
+
+$form = new course_config_form($url->out(false), [
+    'courseid' => $courseid,
+    'blockinstanceid' => $blockinstanceid,
+    'scopetype' => $scopetype,
+]);
 
 if ($form->is_cancelled()) {
     redirect(new moodle_url('/course/view.php', ['id' => $courseid]));
@@ -121,12 +138,23 @@ if ($raw !== null) {
     foreach (defaults::default_tool_names() as $toolname) {
         $data[course_config_form::tool_element_name($toolname)] = isset($enabledtools[$toolname]) ? 1 : 0;
     }
+    if ($platform) {
+        // Platform tools are on unless this block switched them off, which is
+        // also how they are read at runtime.
+        $switchedoff = array_fill_keys(registry::switched_off($courseid, $blockinstanceid), true);
+        foreach (registry::default_names() as $toolname) {
+            $data[course_config_form::tool_element_name($toolname)] = isset($switchedoff[$toolname]) ? 0 : 1;
+        }
+        // Show the texts that actually run: a course default still stored in a
+        // category block is replaced by the platform default at runtime.
+        $data = platform_profile::form_texts($data);
+    }
 }
 $form->set_data($data);
 
 if ($submitted = $form->get_data()) {
     $tools = [];
-    foreach (defaults::default_tool_names() as $toolname) {
+    foreach ($knowntools as $toolname) {
         $field = course_config_form::tool_element_name($toolname);
         if (!empty($submitted->$field)) {
             $tools[] = $toolname;
@@ -184,7 +212,7 @@ if ($submitted = $form->get_data()) {
         'supportincludetranscript' => $supporttristate($submitted->supportincludetranscript),
         'supportcopytouser' => $supporttristate($submitted->supportcopytouser),
     ] + $supportrecipients, $blockinstanceid);
-    course_config::save_tools($courseid, $tools, $blockinstanceid);
+    course_config::save_tools($courseid, $tools, $blockinstanceid, $platform ? $knowntools : null);
 
     // Persist the knowledge-base uploads and queue their (re)indexing.
     file_save_draft_area_files(

@@ -66,4 +66,53 @@ final class course_config_form_test extends \advanced_testcase {
 
         $this->assertSame(count($names), count(array_unique($names)));
     }
+
+    /**
+     * Platform tool names survive a POST too, and never collide with course tools.
+     */
+    public function test_platform_tool_element_names(): void {
+        $names = array_merge(\block_openaiagent\mcp\platform\registry::default_names(), defaults::default_tool_names());
+        $elements = array_map([course_config_form::class, 'tool_element_name'], $names);
+        $this->assertSame(count($elements), count(array_unique($elements)));
+        foreach ($elements as $element) {
+            $parsed = [];
+            parse_str($element . '=1', $parsed);
+            $this->assertArrayHasKey($element, $parsed);
+        }
+    }
+
+    /**
+     * Each scope gets its own defaults and tool list; the course form is unchanged.
+     */
+    public function test_form_follows_the_scope(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $build = function (string $scopetype): \MoodleQuickForm {
+            $form = new course_config_form(null, [
+                'courseid' => SITEID,
+                'blockinstanceid' => 0,
+                'scopetype' => $scopetype,
+            ]);
+            $property = new \ReflectionProperty(\moodleform::class, '_form');
+            $property->setAccessible(true);
+            return $property->getValue($form);
+        };
+        $default = static fn(\MoodleQuickForm $mform, string $name) => $mform->getElement($name)->getValue();
+
+        $course = $build('course');
+        $this->assertSame(defaults::ASSISTANT_PROMPT, $default($course, 'assistantprompt'));
+        $this->assertTrue($course->elementExists('tool_moodle__get_course_outline'));
+        $this->assertFalse($course->elementExists('tool_moodle__get_my_courses'));
+
+        $category = $build('category');
+        $this->assertSame(defaults::PLATFORM_ASSISTANT_PROMPT, $default($category, 'assistantprompt'));
+        $this->assertSame(defaults::PLATFORM_ROUTER_PROMPT, $default($category, 'routerprompt'));
+        $this->assertTrue($category->elementExists('tool_moodle__get_my_courses'));
+        $this->assertTrue($category->elementExists('tool_moodle__get_course_outline'));
+
+        $site = $build('site');
+        $this->assertTrue($site->elementExists('tool_moodle__search_catalog'));
+        $this->assertFalse($site->elementExists('tool_moodle__get_course_outline'));
+    }
 }

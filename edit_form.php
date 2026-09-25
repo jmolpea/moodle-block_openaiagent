@@ -101,5 +101,27 @@ class block_openaiagent_edit_form extends block_edit_form {
         );
         $mform->setType('config_avatarurl', PARAM_URL);
         $mform->addHelpButton('config_avatarurl', 'config_avatarurl', 'block_openaiagent');
+
+        // Only a category assistant has these choices; a course or site block
+        // shows exactly the form it always had.
+        $parent = $this->block->context->get_parent_context();
+        if ($parent && $parent->contextlevel == CONTEXT_COURSECAT) {
+            $mform->addElement('header', 'platformheader', get_string('config_platformheader', 'block_openaiagent'));
+
+            $mform->addElement('select', 'config_catalogscope', get_string('config_catalogscope', 'block_openaiagent'), [
+                'category' => get_string('config_catalogscope_category', 'block_openaiagent'),
+                'site' => get_string('config_catalogscope_site', 'block_openaiagent'),
+            ]);
+            $mform->setDefault('config_catalogscope', 'category');
+            $mform->addHelpButton('config_catalogscope', 'config_catalogscope', 'block_openaiagent');
+
+            $mform->addElement(
+                'advcheckbox',
+                'config_coursetoolsincourse',
+                get_string('config_coursetoolsincourse', 'block_openaiagent')
+            );
+            $mform->setDefault('config_coursetoolsincourse', 1);
+            $mform->addHelpButton('config_coursetoolsincourse', 'config_coursetoolsincourse', 'block_openaiagent');
+        }
     }
 }

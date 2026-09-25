@@ -104,15 +104,26 @@ final class registry {
      * @return string[] Tool names.
      */
     public static function enabled_names(scope $scope): array {
+        $disabled = self::switched_off($scope->courseid, $scope->blockinstanceid);
+        return array_values(array_diff(array_keys(self::permitted($scope)), $disabled));
+    }
+
+    /**
+     * Tools a block has explicitly switched off.
+     *
+     * @param int $courseid Owning course id.
+     * @param int $blockinstanceid Block instance id.
+     * @return string[] Tool names.
+     */
+    public static function switched_off(int $courseid, int $blockinstanceid): array {
         global $DB;
 
-        $disabled = $DB->get_fieldset_select(
+        return $DB->get_fieldset_select(
             'block_openaiagent_coursetools',
             'toolname',
             'courseid = :courseid AND blockinstanceid = :blockid AND enabled = 0',
-            ['courseid' => $scope->courseid, 'blockid' => $scope->blockinstanceid]
+            ['courseid' => $courseid, 'blockid' => $blockinstanceid]
         );
-        return array_values(array_diff(array_keys(self::permitted($scope)), $disabled));
     }
 
     /**

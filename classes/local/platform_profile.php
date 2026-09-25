@@ -61,34 +61,37 @@ final class platform_profile {
         }
         $config['tools'] = array_values(array_unique($tools));
 
-        $config['courseprompt'] = self::or_default(
-            $config['courseprompt'],
-            defaults::TUTOR_PROMPT,
-            defaults::PLATFORM_TUTOR_PROMPT
-        );
-        $config['assistantprompt'] = self::or_default(
-            $config['assistantprompt'],
-            defaults::ASSISTANT_PROMPT,
-            defaults::PLATFORM_ASSISTANT_PROMPT
-        );
-        $config['routerprompt'] = self::or_default(
-            $config['routerprompt'],
-            defaults::ROUTER_PROMPT,
-            defaults::PLATFORM_ROUTER_PROMPT
-        );
-        $config['fallbacknoinfo'] = self::or_default(
-            $config['fallbacknoinfo'],
-            defaults::FALLBACK_NOINFO_DEFAULT,
-            defaults::PLATFORM_FALLBACK_NOINFO
-        );
-        $config['fallbackoutofscope'] = self::or_default(
-            $config['fallbackoutofscope'],
-            defaults::FALLBACK_OUTOFSCOPE_DEFAULT,
-            defaults::PLATFORM_FALLBACK_OUTOFSCOPE
-        );
-
+        $config = self::form_texts($config);
         $config['scope'] = $scope;
         return $config;
+    }
+
+    /**
+     * Course default and platform default of each text field the profile replaces.
+     *
+     * @return array field => [course default, platform default]
+     */
+    public static function text_defaults(): array {
+        return [
+            'courseprompt' => [defaults::TUTOR_PROMPT, defaults::PLATFORM_TUTOR_PROMPT],
+            'assistantprompt' => [defaults::ASSISTANT_PROMPT, defaults::PLATFORM_ASSISTANT_PROMPT],
+            'routerprompt' => [defaults::ROUTER_PROMPT, defaults::PLATFORM_ROUTER_PROMPT],
+            'fallbacknoinfo' => [defaults::FALLBACK_NOINFO_DEFAULT, defaults::PLATFORM_FALLBACK_NOINFO],
+            'fallbackoutofscope' => [defaults::FALLBACK_OUTOFSCOPE_DEFAULT, defaults::PLATFORM_FALLBACK_OUTOFSCOPE],
+        ];
+    }
+
+    /**
+     * The texts a platform assistant's form should show, with the same rule as at runtime.
+     *
+     * @param array $data Stored values, field => text.
+     * @return array The same fields, with course defaults replaced by platform ones.
+     */
+    public static function form_texts(array $data): array {
+        foreach (self::text_defaults() as $field => [$coursedefault, $platformdefault]) {
+            $data[$field] = self::or_default((string)($data[$field] ?? ''), $coursedefault, $platformdefault);
+        }
+        return $data;
     }
 
     /**

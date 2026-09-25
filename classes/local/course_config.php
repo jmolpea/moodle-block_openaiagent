@@ -353,9 +353,15 @@ class course_config {
      * @param int $courseid Course id.
      * @param string[] $enablednames Tool names that should be enabled.
      * @param int $blockinstanceid Owning block instance id (0 = course-wide default).
+     * @param string[]|null $knownnames Tools the form offered (null = the course tools).
      * @return void
      */
-    public static function save_tools(int $courseid, array $enablednames, int $blockinstanceid = 0): void {
+    public static function save_tools(
+        int $courseid,
+        array $enablednames,
+        int $blockinstanceid = 0,
+        ?array $knownnames = null
+    ): void {
         global $DB;
 
         $now = time();
@@ -367,7 +373,7 @@ class course_config {
             'toolname, id'
         );
 
-        foreach (defaults::default_tool_names() as $toolname) {
+        foreach ($knownnames ?? defaults::default_tool_names() as $toolname) {
             $isenabled = isset($enabled[$toolname]) ? 1 : 0;
             if (isset($existing[$toolname])) {
                 $DB->update_record(self::TOOLS_TABLE, (object) [

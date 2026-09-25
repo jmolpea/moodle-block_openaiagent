@@ -30,7 +30,10 @@ global $CFG;
 require_once($CFG->libdir . '/formslib.php');
 
 use block_openaiagent\local\defaults;
+use block_openaiagent\local\platform_profile;
+use block_openaiagent\local\scope;
 use block_openaiagent\local\support_mailer;
+use block_openaiagent\mcp\platform\registry;
 
 /**
  * Course configuration form.
@@ -43,6 +46,13 @@ class course_config_form extends \moodleform {
         $mform = $this->_form;
         $courseid = (int)$this->_customdata['courseid'];
         $blockinstanceid = (int)($this->_customdata['blockinstanceid'] ?? 0);
+        // Where the assistant lives: a category or site assistant gets platform
+        // defaults and platform tools; a course assistant sees the form it always had.
+        $scopetype = (string)($this->_customdata['scopetype'] ?? scope::COURSE);
+        $platform = in_array($scopetype, [scope::CATEGORY, scope::SITE], true);
+        $textdefault = static function (string $field) use ($platform): string {
+            return platform_profile::text_defaults()[$field][$platform ? 1 : 0];
+        };
         $context = \context_course::instance($courseid);
 
         $mform->addElement('hidden', 'courseid', $courseid);
@@ -177,7 +187,7 @@ class course_config_form extends \moodleform {
         // so shipping it pre-filled means a course works well out of the box and the
         // author edits a working prompt instead of writing one from nothing against
         // a default they cannot see.
-        $mform->setDefault('courseprompt', defaults::TUTOR_PROMPT);
+        $mform->setDefault('courseprompt', $textdefault('courseprompt'));
 
         $mform->addElement(
             'textarea',
@@ -219,7 +229,7 @@ class course_config_form extends \moodleform {
             ['rows' => 2, 'cols' => 60]
         );
         $mform->setType('fallbacknoinfo', PARAM_TEXT);
-        $mform->setDefault('fallbacknoinfo', defaults::FALLBACK_NOINFO_DEFAULT);
+        $mform->setDefault('fallbacknoinfo', $textdefault('fallbacknoinfo'));
 
         $mform->addElement(
             'textarea',
@@ -228,7 +238,7 @@ class course_config_form extends \moodleform {
             ['rows' => 2, 'cols' => 60]
         );
         $mform->setType('fallbackoutofscope', PARAM_TEXT);
-        $mform->setDefault('fallbackoutofscope', defaults::FALLBACK_OUTOFSCOPE_DEFAULT);
+        $mform->setDefault('fallbackoutofscope', $textdefault('fallbackoutofscope'));
 
         $mform->addElement(
             'textarea',
@@ -249,7 +259,7 @@ class course_config_form extends \moodleform {
             ['rows' => 10, 'cols' => 60]
         );
         $mform->setType('assistantprompt', PARAM_TEXT);
-        $mform->setDefault('assistantprompt', defaults::ASSISTANT_PROMPT);
+        $mform->setDefault('assistantprompt', $textdefault('assistantprompt'));
 
         $mform->addElement(
             'textarea',
@@ -269,7 +279,7 @@ class course_config_form extends \moodleform {
             ['rows' => 10, 'cols' => 60]
         );
         $mform->setType('routerprompt', PARAM_TEXT);
-        $mform->setDefault('routerprompt', defaults::ROUTER_PROMPT);
+        $mform->setDefault('routerprompt', $textdefault('routerprompt'));
         $mform->addElement(
             'static',
             'routerprompt_help',
@@ -373,12 +383,39 @@ class course_config_form extends \moodleform {
         $mform->setType('supportcopytouser', PARAM_INT);
         $mform->setDefault('supportcopytouser', -1);
 
-        // Assistant tools.
-        $mform->addElement('header', 'toolshdr', get_string('cc_tools', 'block_openaiagent'));
-        foreach (defaults::default_tool_names() as $toolname) {
-            $element = self::tool_element_name($toolname);
-            $mform->addElement('advcheckbox', $element, $toolname);
-            $mform->setDefault($element, 1);
+        // Assistant tools. A course assistant sees exactly the list it always had.
+        if ($platform) {
+            $mform->addElement('header', 'platformtoolshdr', get_string('cc_platformtools', 'block_openaiagent'));
+            $mform->addElement(
+                'static',
+                'platformtools_help',
+                '',
+                get_string('cc_platformtools_help', 'block_openaiagent')
+            );
+            foreach (registry::default_names() as $toolname) {
+                $element = self::tool_element_name($toolname);
+                $mform->addElement('advcheckbox', $element, $toolname);
+                $mform->setDefault($element, 1);
+            }
+        }
+        // A category assistant shown inside one of its courses also uses the
+        // course tools, for participants enrolled there; a site assistant never does.
+        if ($scopetype !== scope::SITE) {
+            $header = $platform ? 'cc_coursetoolsincourse' : 'cc_tools';
+            $mform->addElement('header', 'toolshdr', get_string($header, 'block_openaiagent'));
+            if ($platform) {
+                $mform->addElement(
+                    'static',
+                    'coursetools_help',
+                    '',
+                    get_string('cc_coursetoolsincourse_help', 'block_openaiagent')
+                );
+            }
+            foreach (defaults::default_tool_names() as $toolname) {
+                $element = self::tool_element_name($toolname);
+                $mform->addElement('advcheckbox', $element, $toolname);
+                $mform->setDefault($element, 1);
+            }
         }
 
         $this->add_action_buttons();
