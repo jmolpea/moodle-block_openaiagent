@@ -33,6 +33,7 @@ use block_openaiagent\local\conversation_repository;
 use block_openaiagent\local\course_config;
 use block_openaiagent\local\support_action;
 use block_openaiagent\local\markdown;
+use block_openaiagent\local\scope;
 
 /**
  * Returns the messages of a conversation owned by the current user.
@@ -68,7 +69,8 @@ class get_conversation extends external_api {
             'blockid' => $blockid,
         ]);
 
-        $context = \context_course::instance($params['courseid']);
+        // Course blocks keep the course context; category and site blocks use their own.
+        $context = scope::for_request($params['courseid'], (int)$params['blockid'], (int)$USER->id)->context;
         self::validate_context($context);
         require_capability('block/openaiagent:use', $context);
 

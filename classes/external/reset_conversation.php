@@ -29,6 +29,7 @@ use core_external\external_function_parameters;
 use core_external\external_single_structure;
 use core_external\external_value;
 use block_openaiagent\local\conversation_repository;
+use block_openaiagent\local\scope;
 
 /**
  * Deletes the current user's conversation history in a course.
@@ -61,7 +62,8 @@ class reset_conversation extends external_api {
             'blockid' => $blockid,
         ]);
 
-        $context = \context_course::instance($params['courseid']);
+        // Course blocks keep the course context; category and site blocks use their own.
+        $context = scope::for_request($params['courseid'], (int)$params['blockid'], (int)$USER->id)->context;
         self::validate_context($context);
         require_capability('block/openaiagent:use', $context);
 

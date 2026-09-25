@@ -216,6 +216,7 @@ $string['embeddings_model_default'] = 'Modelo por defecto del proveedor (recomen
 $string['embeddings_none'] = 'Desactivado (solo búsqueda por palabras clave)';
 $string['error_aitoolsdisabled'] = 'El asistente no está disponible en este curso.';
 $string['error_assistantdisabled'] = 'El asistente no está habilitado en este curso.';
+$string['error_dashboardunsupported'] = 'El asistente no funciona en el Área personal: Moodle crea para cada usuario su propia copia de este bloque, y esa copia no tiene la configuración ni los documentos del asistente. Añade el bloque en la portada del sitio o en una categoría de cursos. Este aviso solo lo ven quienes pueden editar el bloque.';
 $string['error_emptymessage'] = 'Por favor, escribe un mensaje.';
 $string['error_guardrail_blocked'] = 'No se pudo procesar tu mensaje. Reformula tu solicitud y evita compartir datos sensibles.';
 $string['error_messagetoolong'] = 'Tu mensaje es demasiado largo. Acórtalo e inténtalo de nuevo.';

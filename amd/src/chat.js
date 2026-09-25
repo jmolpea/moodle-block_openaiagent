@@ -40,6 +40,7 @@ define([
     function ChatController(config) {
         this.blockId = config.blockid;
         this.courseId = config.courseid;
+        this.pageCourseId = config.pagecourseid || 0;
         this.strings = config.strings || {};
         this.avatarUrl = config.avatarurl || '';
         this.conversationId = 0;
@@ -202,7 +203,8 @@ define([
                 courseid: this.courseId,
                 message: message,
                 conversationid: this.conversationId,
-                blockid: this.blockId
+                blockid: this.blockId,
+                pagecourseid: this.pageCourseId
             }
         }])[0].then(function(result) {
             self.hideTyping();

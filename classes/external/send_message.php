@@ -29,6 +29,7 @@ use core_external\external_function_parameters;
 use core_external\external_single_structure;
 use core_external\external_value;
 use block_openaiagent\local\markdown;
+use block_openaiagent\local\scope;
 use block_openaiagent\local\support_action;
 use block_openaiagent\orchestrator;
 
@@ -47,6 +48,12 @@ class send_message extends external_api {
             'message' => new external_value(PARAM_RAW, 'User message'),
             'conversationid' => new external_value(PARAM_INT, 'Conversation to continue (0 for new)', VALUE_DEFAULT, 0),
             'blockid' => new external_value(PARAM_INT, 'Owning block instance id (0 = course-wide default)', VALUE_DEFAULT, 0),
+            'pagecourseid' => new external_value(
+                PARAM_INT,
+                'Course of the page a category assistant is shown on (0 = none); validated on the server',
+                VALUE_DEFAULT,
+                0
+            ),
         ]);
     }
 
@@ -60,9 +67,16 @@ class send_message extends external_api {
      * @param string $message User message.
      * @param int $conversationid Conversation to continue.
      * @param int $blockid Owning block instance id (0 = course-wide default).
+     * @param int $pagecourseid Course of the page, for a category assistant (0 = none).
      * @return array
      */
-    public static function execute(int $courseid, string $message, int $conversationid = 0, int $blockid = 0): array {
+    public static function execute(
+        int $courseid,
+        string $message,
+        int $conversationid = 0,
+        int $blockid = 0,
+        int $pagecourseid = 0
+    ): array {
         global $USER;
 
         $params = self::validate_parameters(self::execute_parameters(), [
@@ -70,9 +84,19 @@ class send_message extends external_api {
             'message' => $message,
             'conversationid' => $conversationid,
             'blockid' => $blockid,
+            'pagecourseid' => $pagecourseid,
         ]);
 
-        $context = \context_course::instance($params['courseid']);
+        // The scope comes from the block, never from the client: a course block
+        // is checked against its course exactly as before, and a category or
+        // site block against its own context.
+        $scope = scope::for_request(
+            $params['courseid'],
+            $params['blockid'],
+            (int)$USER->id,
+            $params['pagecourseid']
+        );
+        $context = $scope->context;
         self::validate_context($context);
         require_capability('block/openaiagent:use', $context);
 

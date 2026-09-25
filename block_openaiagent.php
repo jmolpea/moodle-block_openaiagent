@@ -56,13 +56,37 @@ class block_openaiagent extends block_base {
         // (via "display on subcontexts") always resolves the same profile and
         // history instead of splitting per viewing course.
         $blockinstanceid = (int)$this->instance->id;
-        $courseid = \block_openaiagent\local\course_config::owning_courseid(
+        $scope = \block_openaiagent\local\scope::for_block(
             $blockinstanceid,
+            (int)$USER->id,
             (int)$this->page->course->id
         );
+        $courseid = $scope->courseid;
 
-        // Check if user has permission to use the chat. The capability is course-scoped.
-        $context = \context_course::instance($courseid);
+        // Dashboard blocks are copied per user by Moodle with new ids, and every
+        // assistant profile is keyed by block id, so each copy would start empty.
+        // Only the people who can move it are told; everyone else sees nothing.
+        if ($scope->type === \block_openaiagent\local\scope::DASHBOARD) {
+            if (has_capability('moodle/block:edit', $this->context)) {
+                $this->content->text = $OUTPUT->notification(
+                    get_string('error_dashboardunsupported', 'block_openaiagent'),
+                    'info'
+                );
+            }
+            return $this->content;
+        }
+
+        // The enrolment page is allowed only for category assistants. A course
+        // assistant never showed there, and its documents and tools are for the
+        // course's participants, not for someone deciding whether to enrol.
+        if ($scope->is_course() && strpos((string)$this->page->pagetype, 'enrol-') === 0) {
+            return $this->content;
+        }
+
+        // Check if user has permission to use the chat. A course assistant checks
+        // the course context, as always; a category or site assistant checks its
+        // own block context, so role overrides on the category apply to it.
+        $context = $scope->context;
         if (!has_capability('block/openaiagent:use', $context)) {
             return $this->content;
         }
@@ -144,6 +168,9 @@ class block_openaiagent extends block_base {
         $jsconfig = [
             'blockid' => $this->instance->id,
             'courseid' => $courseid,
+            // Only a category block shown inside one of its courses sets this, and
+            // the server validates it again on every request.
+            'pagecourseid' => $scope->pagecourseid,
             'avatarurl' => $avatarurl,
             'strings' => [
                 'thinking' => get_string('thinking', 'block_openaiagent'),
@@ -272,6 +299,9 @@ class block_openaiagent extends block_base {
             'site' => true,
             'category' => true,
             'course-index-category' => true,
+            // The course enrolment page, so a category assistant shown throughout
+            // its category can answer "how do I enrol in this course?" right there.
+            'enrol-index' => true,
             'mod' => true,
             'my' => true,
         ];

@@ -216,6 +216,7 @@ $string['embeddings_model_default'] = 'Provider default (recommended)';
 $string['embeddings_none'] = 'Disabled (keyword search only)';
 $string['error_aitoolsdisabled'] = 'The assistant is not available in this course.';
 $string['error_assistantdisabled'] = 'The assistant is not enabled for this course.';
+$string['error_dashboardunsupported'] = 'The assistant does not work on the Dashboard: Moodle gives every user their own copy of this block, and that copy has no assistant settings or documents. Add the block to the site home or to a course category instead. Only people who can edit this block see this message.';
 $string['error_emptymessage'] = 'Please type a message.';
 $string['error_guardrail_blocked'] = 'Your message could not be processed. Please rephrase your request and avoid sharing sensitive data.';
 $string['error_messagetoolong'] = 'Your message is too long. Please shorten it and try again.';
