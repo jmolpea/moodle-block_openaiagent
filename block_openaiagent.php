@@ -66,8 +66,10 @@ class block_openaiagent extends block_base {
         // Dashboard blocks are copied per user by Moodle with new ids, and every
         // assistant profile is keyed by block id, so each copy would start empty.
         // Only the people who can move it are told; everyone else sees nothing.
+        // On the Dashboard that is its owner, through moodle/my:manageblocks,
+        // which the page's own check knows about and moodle/block:edit does not.
         if ($scope->type === \block_openaiagent\local\scope::DASHBOARD) {
-            if (has_capability('moodle/block:edit', $this->context)) {
+            if ($this->page->user_can_edit_blocks()) {
                 $this->content->text = $OUTPUT->notification(
                     get_string('error_dashboardunsupported', 'block_openaiagent'),
                     'info'

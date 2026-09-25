@@ -7,6 +7,69 @@ usa [Versionado Semántico](https://semver.org/lang/es/).
 
 ---
 
+## [4.18.0] — sin publicar
+
+Asistente de plataforma: el bloque colocado en una categoría o en la portada
+deja de funcionar como un curso más y trabaja con los datos del participante en
+todos sus cursos, con el catálogo y con la matriculación. El asistente de curso
+no cambia: un test de referencia fija lo que envía al modelo en cada ruta y
+sigue idéntico.
+
+### Añadido
+
+- **Detección del ámbito en el servidor.** El bloque sabe si está en un curso, una
+  categoría, la portada o el Área personal, a partir de su propio contexto y
+  nunca de lo que envía el navegador. Si un servicio recibe un curso y un bloque
+  que no se corresponden, rechaza la petición.
+- **Nueve herramientas de plataforma**, todas de solo lectura y ejecutadas como el
+  propio usuario:
+  - mis cursos con el estado de acceso de cada uno: activo, suspendido, caducado
+    (con la fecha), aún no empezado, curso oculto o terminado;
+  - progreso en un curso, próximas entregas y eventos, notas finales (las mismas
+    que el informe «Resumen de calificaciones») y avisos sin leer (solo los
+    asuntos);
+  - perfil de acceso: método de inicio de sesión y si Moodle gestiona la
+    contraseña;
+  - catálogo de cursos visible para el usuario, limitado por defecto a la
+    categoría del bloque;
+  - métodos de matriculación de un curso, con precio, fechas y si el usuario
+    puede usarlos. La clave de matriculación y los enlaces de pago no se
+    devuelven nunca;
+  - información de acceso al sitio: inicio de sesión, autorregistro, recuperación
+    de contraseña y página de soporte.
+- **Indicaciones por defecto de plataforma** para el enrutador, el agente de
+  información institucional (base de conocimiento del bloque) y el asistente de
+  plataforma. Los bloques de categoría o portada que tenían las indicaciones de
+  curso sin modificar pasan solos a las nuevas. Las indicaciones escritas por el
+  administrador se conservan.
+- **Bloque de categoría dentro de un curso.** Cuando se muestra en un curso de la
+  categoría y el participante está matriculado, añade las herramientas de ese
+  curso, siempre sobre ese curso. Se puede desactivar desde la configuración del
+  bloque. El bloque también puede aparecer en la página de matriculación del
+  curso para responder cómo inscribirse.
+- **Configuración del bloque de categoría:** catálogo limitado a la categoría o
+  abierto a todo el sitio, y uso de las herramientas del curso dentro de sus
+  cursos.
+- **Escalado a soporte fuera del curso**, con la dirección configurada en el
+  plugin y la capacidad nueva `block/openaiagent:requestplatformsupport`. Hasta
+  ahora, en un bloque de categoría el escalado no se ofrecía nunca.
+- **Panel de analítica:** una fila propia por cada asistente de categoría o de
+  portada, en lugar de una fila conjunta del curso del sitio.
+
+### Cambiado
+
+- En el Área personal el bloque ya no abre un chat: Moodle copia el bloque a cada
+  usuario sin su configuración. Quien puede editarlo ve un aviso para colocarlo
+  en la portada o en una categoría.
+- En los bloques de categoría y portada, la capacidad de uso se comprueba en el
+  contexto del propio bloque, así que se respetan las anulaciones de permisos de
+  la categoría.
+- Fuera de un curso, un destino de soporte formado solo por `{course_teachers}`
+  no llega a nadie, así que el escalado queda desactivado hasta configurar una
+  dirección.
+
+---
+
 ## [4.17.1] — 2026-09-25
 
 Corrección de DeepSeek. Desde la 4.16.0, un sitio con DeepSeek no podía usar el
