@@ -279,8 +279,10 @@ if ($ADMIN->fulltree) {
             'gemini-3.8-flash', 'gemini-3.5-flash', 'gemini-3.5-flash-lite',
             'gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.5-flash-lite',
         ],
+        // The only two ids DeepSeek accepts. deepseek-chat and deepseek-reasoner
+        // were retired on 24-07-2026.
         'deepseek' => [
-            'deepseek-pro', 'deepseek-flash', 'deepseek-chat', 'deepseek-reasoner',
+            'deepseek-v4-pro', 'deepseek-flash',
         ],
     ];
     $modeldefaults = [
@@ -304,7 +306,7 @@ if ($ADMIN->fulltree) {
             'small' => 'gemini-3.5-flash-lite',
         ],
         'deepseek' => [
-            'content' => 'deepseek-pro',
+            'content' => 'deepseek-v4-pro',
             'model' => 'deepseek-flash',
             'small' => 'deepseek-flash',
         ],

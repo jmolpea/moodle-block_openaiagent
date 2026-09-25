@@ -85,6 +85,37 @@ class openai_compatible_client extends client_base {
     }
 
     /**
+     * The thinking-mode fields for a DeepSeek request.
+     *
+     * DeepSeek's current models think by default, at high effort. That is fine
+     * for a free-form answer, but it breaks the assistant: with thinking on, a
+     * request that carries tools must send every earlier reasoning_content back
+     * on each following request, or the API answers 400. The tool loop does not
+     * keep those, so the second call of any turn that looked something up would
+     * fail. Thinking is therefore switched off whenever tools are sent -- the
+     * same decision, for the same reason, as reasoning_effort 'none' on gpt-6.
+     *
+     * It is also switched off in JSON mode, which only the router uses: a short
+     * classifier that runs on every turn, where seconds of reasoning buy nothing.
+     *
+     * Otherwise the site's effort setting is passed through. DeepSeek maps the
+     * neutral values itself (minimal to low, medium to high), and an empty
+     * setting sends nothing, leaving the provider's default in place.
+     *
+     * @param request $request Neutral request.
+     * @return array Payload fields to add.
+     */
+    private static function deepseek_thinking(request $request): array {
+        if (!empty($request->tools) || $request->jsonmode) {
+            return ['thinking' => ['type' => 'disabled']];
+        }
+        if ($request->reasoningeffort !== '') {
+            return ['reasoning_effort' => $request->reasoningeffort];
+        }
+        return [];
+    }
+
+    /**
      * Execute a chat completion.
      *
      * @param request $request Neutral request.
@@ -106,12 +137,13 @@ class openai_compatible_client extends client_base {
         ];
         // OpenAI reasoning models (gpt-5*, gpt-6*, o1/o3/o4*) reject any temperature
         // other than the default, so the parameter must be omitted for them.
-        // DeepSeek shares this adapter but is deliberately excluded: it has no
-        // effort parameter -- reasoning is chosen by picking deepseek-reasoner
-        // instead of deepseek-chat -- so the neutral effort is a no-op there.
+        // DeepSeek has its own branch: see deepseek_thinking().
         $reasoningmodel = $this->provider === 'openai'
             && preg_match('/^(gpt-[56]|o\d)/', strtolower($request->model)) === 1;
-        if (!$reasoningmodel) {
+        if ($this->provider === 'deepseek') {
+            $payload['temperature'] = $request->temperature;
+            $payload += self::deepseek_thinking($request);
+        } else if (!$reasoningmodel) {
             $payload['temperature'] = $request->temperature;
         } else if (self::rejects_tools_with_reasoning($request->model) && !empty($request->tools)) {
             // The gpt-5.6 and gpt-6 families refuse function tools combined with a reasoning

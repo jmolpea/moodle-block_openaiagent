@@ -1374,5 +1374,42 @@ EOT;
         upgrade_block_savepoint(true, 2026092301, 'openaiagent');
     }
 
+    if ($oldversion < 2026092500) {
+        // Three DeepSeek ids the plugin offered no longer reach a model:
+        // deepseek-pro never existed (it was the tutor and assistant default
+        // since 4.16.0), and deepseek-chat and deepseek-reasoner were retired on
+        // 24-07-2026. Unlike the gpt-6-luna step, per-course overrides are moved
+        // too: a teacher chose a model that now fails on every turn, and keeping
+        // that choice would keep the course broken. Usage statistics keep the
+        // id that was actually called.
+        $renames = [
+            'deepseek-pro' => 'deepseek-v4-pro',
+            'deepseek-chat' => 'deepseek-flash',
+            'deepseek-reasoner' => 'deepseek-flash',
+        ];
+        $now = time();
+        $settings = [
+            'default_tutor_model', 'default_assistant_model', 'default_router_model',
+            'default_ambiguity_model', 'query_rewrite_model',
+        ];
+        foreach ($renames as $old => $new) {
+            foreach ($DB->get_records('block_openaiagent_agents', ['defaultmodel' => $old], '', 'id') as $agent) {
+                $DB->update_record('block_openaiagent_agents', (object) [
+                    'id' => $agent->id,
+                    'defaultmodel' => $new,
+                    'timemodified' => $now,
+                ]);
+            }
+            $DB->set_field('block_openaiagent_courseconfig', 'modeloverride', $new, ['modeloverride' => $old]);
+            foreach ($settings as $name) {
+                if ((string)get_config('block_openaiagent', $name) === $old) {
+                    set_config($name, $new, 'block_openaiagent');
+                }
+            }
+        }
+
+        upgrade_block_savepoint(true, 2026092500, 'openaiagent');
+    }
+
     return true;
 }

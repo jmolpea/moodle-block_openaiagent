@@ -7,6 +7,37 @@ usa [Versionado Semántico](https://semver.org/lang/es/).
 
 ---
 
+## [4.17.1] — 2026-09-25
+
+Corrección de DeepSeek. Desde la 4.16.0, un sitio con DeepSeek no podía usar el
+tutor ni el asistente.
+
+### Corregido
+
+- **El modelo por defecto de DeepSeek no existía.** Tutor y asistente usaban
+  `deepseek-pro`, un identificador que DeepSeek no reconoce. Pasa a
+  `deepseek-v4-pro`.
+- **Se quitan `deepseek-chat` y `deepseek-reasoner`**, que DeepSeek retiró el
+  24-07-2026. La lista queda en `deepseek-v4-pro` y `deepseek-flash`, los dos
+  únicos identificadores que acepta la API.
+- **El asistente de DeepSeek fallaba al consultar datos.** Los modelos actuales de
+  DeepSeek razonan por defecto, y en ese modo una petición con herramientas exige
+  reenviar el razonamiento de las llamadas anteriores o responde con un error 400.
+  El asistente y el enrutador usan ahora DeepSeek con el razonamiento
+  desactivado. Es la misma solución que ya se aplica a `gpt-6` con herramientas.
+- El ajuste «Esfuerzo de razonamiento» se aplica ahora también a DeepSeek en el
+  tutor y el agente de ambigüedad. Vacío sigue sin enviar nada.
+
+### Actualización
+
+- Un paso de actualización cambia `deepseek-pro` por `deepseek-v4-pro`, y
+  `deepseek-chat` y `deepseek-reasoner` por `deepseek-flash`. Se aplica en los
+  agentes, en los modelos por defecto del sitio, en el modelo de reescritura de
+  consultas y en los modelos elegidos por curso, porque todos dejaron de
+  funcionar. Las estadísticas de uso conservan el identificador que se llamó.
+
+---
+
 ## [4.17.0] — 2026-09-23
 
 Compatibilidad con Moodle 5.0, 5.1 y 5.2, sin dejar de soportar 4.5 LTS: el

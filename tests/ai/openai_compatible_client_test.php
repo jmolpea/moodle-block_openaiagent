@@ -64,4 +64,54 @@ final class openai_compatible_client_test extends \advanced_testcase {
         $this->assertFalse($this->rejects('gpt-4.1-mini'));
         $this->assertFalse($this->rejects('o4-mini'));
     }
+
+    /**
+     * Call the private DeepSeek thinking-mode builder.
+     *
+     * @param request $request Neutral request.
+     * @return array
+     */
+    private function deepseek_thinking(request $request): array {
+        $method = new \ReflectionMethod(openai_compatible_client::class, 'deepseek_thinking');
+        $method->setAccessible(true);
+        return (array)$method->invoke(null, $request);
+    }
+
+    /**
+     * A DeepSeek request that carries tools never has thinking on.
+     *
+     * With thinking on, DeepSeek answers 400 to a tools request that does not
+     * resend every earlier reasoning_content, which the tool loop does not keep.
+     * The site effort must not switch it back on.
+     */
+    public function test_deepseek_disables_thinking_with_tools(): void {
+        $request = new request();
+        $request->tools = [['name' => 'moodle__get_context', 'description' => 'x', 'parameters' => []]];
+        $request->reasoningeffort = 'high';
+
+        $this->assertSame(['thinking' => ['type' => 'disabled']], $this->deepseek_thinking($request));
+    }
+
+    /**
+     * The router, the only JSON-mode caller, runs DeepSeek without thinking.
+     */
+    public function test_deepseek_disables_thinking_in_json_mode(): void {
+        $request = new request();
+        $request->jsonmode = true;
+        $request->reasoningeffort = 'low';
+
+        $this->assertSame(['thinking' => ['type' => 'disabled']], $this->deepseek_thinking($request));
+    }
+
+    /**
+     * Without tools, the site effort passes through, and an empty setting sends nothing.
+     */
+    public function test_deepseek_passes_effort_through_without_tools(): void {
+        $request = new request();
+        $request->reasoningeffort = 'medium';
+        $this->assertSame(['reasoning_effort' => 'medium'], $this->deepseek_thinking($request));
+
+        $request->reasoningeffort = '';
+        $this->assertSame([], $this->deepseek_thinking($request));
+    }
 }
