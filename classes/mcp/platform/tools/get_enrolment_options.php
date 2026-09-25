@@ -50,8 +50,9 @@ class get_enrolment_options extends base_tool {
         return 'Return how someone can enrol in ONE course: every enabled method with its type, how it works, '
             . 'restriction (none, enrolment_key, cohort, payment, guest_access, managed_by_institution, other), '
             . 'cost when it requires payment, enrolment opening and closing dates, and whether this user can use '
-            . 'it now (available_to_this_user, not_available_reason). Omit target_course_id to use the course '
-            . 'the participant is looking at. Enrolment keys and payment links are never available: the '
+            . 'it now (available_to_this_user, not_available_reason). When the participant names a course, get '
+            . 'its id from moodle.search_catalog first; omit target_course_id only for the course they are '
+            . 'looking at. Enrolment keys and payment links are never available: the '
             . 'participant completes enrolment on enrol_url. A visitor must log in or create an account first.';
     }
 
