@@ -46,6 +46,9 @@ final class registry {
         tools\get_my_deadlines::class,
         tools\get_my_grades::class,
         tools\get_my_notifications::class,
+        tools\search_catalog::class,
+        tools\get_enrolment_options::class,
+        tools\get_site_access_info::class,
     ];
 
     /**

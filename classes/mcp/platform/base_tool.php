@@ -89,12 +89,17 @@ abstract class base_tool implements tool {
     /**
      * Plain text from formatted HTML, shortened to a limit.
      *
+     * Not html_to_text(): it writes bold and headings in capitals, and a course
+     * summary that bolds a name or a keyword reached the model shouting it.
+     *
      * @param string $html Formatted text.
      * @param int $max Maximum characters.
      * @return string
      */
     protected static function plain(string $html, int $max = self::MAX_SUMMARY_CHARS): string {
-        $text = trim(preg_replace('/\s+/u', ' ', html_to_text($html, 0, false)));
+        $text = preg_replace('#<(br|/p|/div|/li|/h[1-6]|/tr)\b[^>]*>#i', ' ', $html);
+        $text = html_entity_decode(strip_tags($text), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = trim(preg_replace('/\s+/u', ' ', $text));
         if (\core_text::strlen($text) > $max) {
             $text = rtrim(\core_text::substr($text, 0, $max - 1)) . '…';
         }

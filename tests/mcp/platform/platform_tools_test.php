@@ -71,20 +71,33 @@ final class platform_tools_test extends \advanced_testcase {
     }
 
     /**
-     * Visitors and course blocks never reach a personal tool; stored choices switch tools off.
+     * Visitors reach only the public tools, and cannot call a personal one.
      */
     public function test_registry_filters(): void {
-        global $DB;
         $user = $this->getDataGenerator()->create_user();
         $scope = $this->scope_for($user);
 
         $this->assertEqualsCanonicalizing(registry::default_names(), array_keys(registry::permitted($scope)));
 
-        // Not logged in, or guest: none of these tools, whatever is configured.
+        // Not logged in, or guest: only the three tools about the site and its
+        // catalogue, never one about a person, whatever is configured.
+        $public = ['moodle.search_catalog', 'moodle.get_enrolment_options', 'moodle.get_site_access_info'];
         $this->setUser(0);
-        $this->assertSame([], registry::permitted(scope::for_block($this->blockid, 0)));
+        $this->assertEqualsCanonicalizing($public, array_keys(registry::permitted(scope::for_block($this->blockid, 0))));
         $this->setGuestUser();
-        $this->assertSame([], registry::permitted(scope::for_block($this->blockid, (int)guest_user()->id)));
+        $guest = scope::for_block($this->blockid, (int)guest_user()->id);
+        $this->assertEqualsCanonicalizing($public, array_keys(registry::permitted($guest)));
+        $this->expectExceptionObject(new \moodle_exception('mcp_unknown_tool', 'block_openaiagent', '', 'moodle.get_my_courses'));
+        registry::call('moodle.get_my_courses', [], $guest);
+    }
+
+    /**
+     * Stored choices and course blocks.
+     */
+    public function test_registry_configuration(): void {
+        global $DB;
+        $user = $this->getDataGenerator()->create_user();
+        $scope = $this->scope_for($user);
 
         // A course block has no platform tools.
         $course = $this->getDataGenerator()->create_course();
