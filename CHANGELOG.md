@@ -7,7 +7,7 @@ usa [Versionado Semántico](https://semver.org/lang/es/).
 
 ---
 
-## [4.20.0] — sin publicar
+## [4.20.0] — 2026-09-27
 
 Certificados e insignias en el asistente de categoría y de portada.
 
@@ -129,7 +129,7 @@ entonces:
 
 ---
 
-## [4.19.0] — sin publicar
+## [4.19.0] — incluida en 4.20.0 (no se publicó por separado)
 
 Visitantes sin iniciar sesión. Un asistente de categoría o de portada puede
 abrirse a quien no ha iniciado sesión, con todas las protecciones aplicadas de
@@ -185,7 +185,7 @@ sesión no cambian: dos tests de referencia lo comprueban.
 
 ---
 
-## [4.18.0] — sin publicar
+## [4.18.0] — incluida en 4.20.0 (no se publicó por separado)
 
 Asistente de plataforma: el bloque colocado en una categoría o en la portada
 deja de funcionar como un curso más y trabaja con los datos del participante en
@@ -248,7 +248,7 @@ sigue idéntico.
 
 ---
 
-## [4.17.1] — 2026-09-25
+## [4.17.1] — incluida en 4.20.0 (no se publicó por separado)
 
 Corrección de DeepSeek. Desde la 4.16.0, un sitio con DeepSeek no podía usar el
 tutor ni el asistente.

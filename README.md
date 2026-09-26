@@ -111,10 +111,21 @@ recipient, the participant's identity and the course data are filled in by Moodl
 from its own database at send time. **Nothing is sent until the participant
 confirms the summary in front of them.**
 
-When the offer appears is decided by the server, not the model: one of five
-triggers must fire — the participant asks for a person, the assistant fell back
-to its default answer, a tool failed, the same question repeats without progress,
-or the answer itself recommends contacting support.
+Every request reaches a person, so the card is shown only when it is needed:
+
+- **The participant asks for it** — "I want to talk to a person", "send the
+  request for me", "open a ticket". If they have not said what the problem is,
+  the assistant asks first, so the request describes something support can act
+  on.
+- **The participant accepts an offer.** The assistant offers to prepare the
+  request when it cannot solve the problem itself: something only staff can do
+  (a grade, a deadline extension, a reopened attempt), a tool that fails, or a
+  participant still stuck after it has tried. The card appears when they say yes.
+
+Asking *how* to contact support is answered, not turned into a card, and an
+answer that ends with "if it persists, contact support" gets no card either.
+A new card replaces one left unanswered, and when a limit stops a new request the
+assistant is told the real reason.
 
 Escalation mail is sent from the site's noreply account with the participant in
 `Reply-To`, so support replies reach them directly without breaking SPF or DMARC.
@@ -136,6 +147,33 @@ overridden per course with an explicit inherit / yes / no switch.
 Headline figures live in the usage dashboard. The full list, filterable by
 period, status, participant name or reference, is at **Site administration →
 Blocks → Smart Tutor & Support AI → Support escalation report**.
+
+## Category and site-home assistants
+
+Placed in a **course category** or on the **site home**, the block becomes a
+platform assistant for the whole site instead of a course assistant. A block
+placed in a course behaves exactly as before.
+
+- **The participant's own data across all their courses**: courses in progress
+  and completed, progress and completion conditions, upcoming deadlines, grades,
+  notifications, profile, and certificates and badges (Moodle badges,
+  `mod_customcert`, `tool_certificate`, `mod_certificate` and Open Badge Factory,
+  each used only when installed). Only the logged-in user's data, with Moodle's
+  own visibility rules.
+- **Catalogue and enrolment**: searching the courses a user may see (limited to
+  the block's category by default) and explaining each course's enrolment
+  methods. Enrolment keys and payment details are never revealed.
+- **Inside a course of its category**, a category assistant also gets that
+  course's tools for participants enrolled in it (optional, per block).
+- **Visitors who are not logged in** (optional, off by default, category and
+  site-home blocks only, and never on sites that force login): a manager can
+  open a block to them. They get the catalogue, enrolment and site access
+  information and nothing personal, with a per-address limit, a site-wide daily
+  ceiling, an optional invisible captcha (Cloudflare Turnstile or reCAPTCHA v3)
+  and a short retention. The block settings show the worst-case daily cost.
+
+Each assistant has its own configuration, knowledge base and support settings,
+reached from the category's settings menu or the site home's.
 
 ## Knowledge base and tutor accuracy
 
