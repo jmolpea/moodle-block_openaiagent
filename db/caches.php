@@ -46,10 +46,12 @@ $definitions = [
         'ttl' => 86400,
     ],
     // Results of the catalogue tools for visitors: the same public answer for
-    // everybody, so repeated questions do not repeat the queries.
+    // everybody, so a burst of repeated questions does not repeat the queries.
+    // Kept short on purpose: a course hidden by its teacher must disappear
+    // from what visitors are told within minutes, not hours.
     'visitortools' => [
         'mode' => cache_store::MODE_APPLICATION,
         'simpledata' => true,
-        'ttl' => 21600, // 6 hours.
+        'ttl' => 600, // 10 minutes.
     ],
 ];

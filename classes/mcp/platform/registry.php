@@ -223,7 +223,8 @@ final class registry {
         $ok = false;
         $errtype = '';
         try {
-            $result = $scope->is_visitor()
+            // Site access facts are cheap and must be exact; only the catalogue is cached.
+            $result = $scope->is_visitor() && $name !== 'moodle.get_site_access_info'
                 ? self::cached_public_call($permitted[$name], $input, $scope)
                 : $permitted[$name]->execute($input, $scope);
             $ok = true;

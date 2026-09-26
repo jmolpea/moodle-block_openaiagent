@@ -161,8 +161,16 @@ final class catalog_tools_test extends \advanced_testcase {
         $this->assertContains('Open Course', self::names($result));
         $this->assertFalse($result['courses'][0]['is_mine']);
 
+        // The same question from another visitor is answered from the short
+        // shared cache: a course created meanwhile only appears once it expires.
+        $this->getDataGenerator()->create_course(['fullname' => 'Newer Course', 'category' => $this->category->id]);
+        $this->assertNotContains('Newer Course', self::names(registry::call('moodle.search_catalog', [], $this->scope_for(0))));
+        \cache::make('block_openaiagent', 'visitortools')->purge();
+        $this->assertContains('Newer Course', self::names(registry::call('moodle.search_catalog', [], $this->scope_for(0))));
+
         // A site that forces login shows visitors nothing, as Moodle itself does.
         set_config('forcelogin', 1);
+        \cache::make('block_openaiagent', 'visitortools')->purge();
         $result = registry::call('moodle.search_catalog', [], $this->scope_for(0));
         $this->assertSame([], $result['courses']);
     }

@@ -7,6 +7,49 @@ usa [Versionado Semántico](https://semver.org/lang/es/).
 
 ---
 
+## [4.19.0] — sin publicar
+
+Visitantes sin iniciar sesión. Un asistente de categoría o de portada puede
+abrirse a quien no ha iniciado sesión, con todas las protecciones aplicadas de
+forma automática. Los asistentes de curso y los de categoría para usuarios con
+sesión no cambian: dos tests de referencia lo comprueban.
+
+### Añadido
+
+- **Interruptor por bloque** («Abrir este asistente a visitantes sin iniciar
+  sesión»), desactivado por defecto. Solo lo ve y lo cambia quien tiene la
+  capacidad nueva `block/openaiagent:managepublicaccess` (gestores). Si otra
+  persona guarda la configuración del bloque, el interruptor conserva su valor.
+- **Servicio sin inicio de sesión**, `block_openaiagent_send_public_message`.
+  Solo responde en bloques de categoría o de portada abiertos a visitantes, en
+  sitios que no obligan a iniciar sesión, y con la capacidad nueva
+  `block/openaiagent:usepublic` (rol invitado) en el contexto del bloque.
+- **Protecciones**, comprobadas en el servidor antes de gastar nada:
+  - token de página firmado con un secreto del sitio. Sustituye a la `sesskey`,
+    que sin sesión no existe;
+  - límite de mensajes por dirección (10 cada 10 minutos). La dirección nunca se
+    guarda: solo una huella cifrada con clave;
+  - tope diario para todo el sitio (300 mensajes). Al alcanzarlo, el visitante
+    recibe los enlaces de acceso, registro y soporte sin que se llame al
+    proveedor, y se avisa a los administradores una vez al día;
+  - mensajes de 500 caracteres como máximo, memoria de 4 turnos y respuestas
+    breves;
+  - captcha invisible opcional: Cloudflare Turnstile o Google reCAPTCHA v3. Se
+    verifica en el servidor, y si el proveedor no responde, el mensaje se
+    rechaza.
+- **Lo que puede hacer un visitante:** buscar en el catálogo, ver cómo
+  matricularse y cómo acceder al sitio, y consultar los documentos del bloque.
+  Nunca accede a datos de una persona, aunque el modelo lo intente. No hay
+  escalado a soporte: se le ofrece la página de soporte del sitio.
+- **Coste visible:** la configuración del bloque muestra el gasto máximo diario
+  estimado y avisa si falta captcha o si el sitio obliga a iniciar sesión.
+- **Retención propia:** las conversaciones de visitantes se borran a las 24 horas
+  (se puede cambiar), aunque el sitio conserve las demás indefinidamente.
+- **Caché de 10 minutos para el catálogo de visitantes.** Solo se guardan los
+  resultados de las consultas a Moodle, nunca las respuestas del modelo.
+
+---
+
 ## [4.18.0] — sin publicar
 
 Asistente de plataforma: el bloque colocado en una categoría o en la portada

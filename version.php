@@ -25,7 +25,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'block_openaiagent';
-$plugin->version = 2026092700;
+$plugin->version = 2026092701;
 $plugin->requires = 2024100700; // Moodle 4.5.
 // Every branch in this range is exercised by CI and was run end to end before
 // release. Do not raise the ceiling without doing the same for the new one:
