@@ -98,6 +98,7 @@ class get_my_credentials extends base_tool {
         $sources = [
             new credentials\moodle_badges(),
             new credentials\customcert(),
+            new credentials\certificate(),
             new credentials\tool_certificate(),
             new credentials\obf(),
         ];

@@ -30,12 +30,13 @@ use block_openaiagent\mcp\platform\tools\get_my_credentials;
 /**
  * Unit tests for get_my_credentials and its sources.
  *
- * The mod_customcert and tool_certificate cases run only where those plugins
- * are installed; the Moodle badge and deduplication cases always run.
+ * The mod_customcert, mod_certificate and tool_certificate cases run only where
+ * those plugins are installed; the Moodle badge and deduplication cases always run.
  *
  * @covers \block_openaiagent\mcp\platform\tools\get_my_credentials
  * @covers \block_openaiagent\mcp\platform\credentials\moodle_badges
  * @covers \block_openaiagent\mcp\platform\credentials\customcert
+ * @covers \block_openaiagent\mcp\platform\credentials\certificate
  * @covers \block_openaiagent\mcp\platform\credentials\tool_certificate
  * @covers \block_openaiagent\mcp\platform\credentials\obf
  */
@@ -133,6 +134,56 @@ final class credentials_test extends \advanced_testcase {
         $this->assertStringContainsString('/admin/tool/certificate/view.php?code=', $certificate['url']);
         $this->assertTrue($certificate['expired']);
         $this->assertNotNull($certificate['expires']);
+    }
+
+    /**
+     * mod_certificate: a link only where the course can still be opened, nobody else's, and no new issues.
+     */
+    public function test_legacy_certificate(): void {
+        global $DB;
+        if (!(new credentials\certificate())->is_available()) {
+            $this->markTestSkipped('mod_certificate is not installed.');
+        }
+        $generator = $this->getDataGenerator();
+        $open = $generator->create_course(['fullname' => 'Curso abierto']);
+        $expired = $generator->create_course(['fullname' => 'Curso caducado']);
+        $generator->enrol_user($this->user->id, $open->id, 'student');
+        $generator->enrol_user(
+            $this->user->id,
+            $expired->id,
+            'student',
+            'manual',
+            time() - 60 * DAYSECS,
+            time() - DAYSECS
+        );
+        $other = $generator->create_user();
+
+        $issue = function (\stdClass $course, string $name, int $userid) use ($generator, $DB) {
+            $certificate = $generator->create_module('certificate', ['course' => $course->id, 'name' => $name]);
+            $DB->insert_record('certificate_issues', (object)['userid' => $userid, 'certificateid' => $certificate->id,
+                'code' => strtoupper(random_string(10)), 'timecreated' => time()]);
+            return $certificate;
+        };
+        $reachable = $issue($open, 'Certificado abierto', (int)$this->user->id);
+        $issue($expired, 'Certificado caducado', (int)$this->user->id);
+        $issue($open, 'Certificado ajeno', (int)$other->id);
+        // An activity where the participant has no issue yet: looking must not create one.
+        $generator->create_module('certificate', ['course' => $open->id, 'name' => 'Sin emitir']);
+        $issuesbefore = $DB->count_records('certificate_issues');
+
+        $byname = array_column($this->credentials(['type' => 'certificate'])['credentials'], null, 'name');
+
+        $this->assertArrayNotHasKey('Certificado ajeno', $byname);
+        $this->assertArrayNotHasKey('Sin emitir', $byname);
+        $this->assertStringContainsString(
+            '/mod/certificate/view.php?id=' . $reachable->cmid,
+            $byname['Certificado abierto']['url']
+        );
+        $this->assertFalse($byname['Certificado abierto']['requires_course_access']);
+        $this->assertNull($byname['Certificado caducado']['url']);
+        $this->assertTrue($byname['Certificado caducado']['requires_course_access']);
+        $this->assertNotEmpty($byname['Certificado caducado']['code']);
+        $this->assertSame($issuesbefore, $DB->count_records('certificate_issues'));
     }
 
     /**

@@ -18,6 +18,12 @@ Certificados e insignias en el asistente de categoría y de portada.
   de todas las fuentes instaladas en el sitio:
   - insignias de Moodle;
   - certificados de `mod_customcert`;
+  - certificados del antiguo `mod_certificate`, que siguen usando algunos
+    sitios. Es la única fuente que se lee directamente de sus tablas, con la
+    autorización del propietario: el plugin no tiene ninguna función para
+    listar los certificados de un alumno, y la que devuelve uno lo emite si aún
+    no existe. Como su descarga exige acceso al curso, si el alumno ya no puede
+    entrar se indica sin enlace, para que el asistente ofrezca soporte;
   - certificados de `tool_certificate`;
   - insignias de Open Badge Factory (`local_obf`), cuando está conectado a una
     cuenta.
