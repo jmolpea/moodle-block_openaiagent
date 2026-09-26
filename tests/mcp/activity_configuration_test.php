@@ -302,21 +302,24 @@ final class activity_configuration_test extends \advanced_testcase {
      * different date from the due date. Both are reported, distinctly.
      */
     public function test_assignment_past_cutoff_is_reported(): void {
+        // Computed once: recomputing it for the assertions failed whenever the
+        // clock crossed a minute boundary between creating and checking.
+        $cutoff = time() - (7 * DAYSECS);
         $assign = $this->getDataGenerator()->create_module('assign', [
             'course' => $this->course->id,
-            'duedate' => time() - (14 * DAYSECS),
-            'cutoffdate' => time() - (7 * DAYSECS),
+            'duedate' => $cutoff - (7 * DAYSECS),
+            'cutoffdate' => $cutoff,
         ]);
 
         $result = $this->config((int)$assign->cmid);
         $rules = $this->rules($result);
 
         $this->assertStringContainsString(
-            get_string('actcfg_assign_cutoff_past', 'block_openaiagent', userdate(time() - (7 * DAYSECS))),
+            get_string('actcfg_assign_cutoff_past', 'block_openaiagent', userdate($cutoff)),
             $rules
         );
         $this->assertStringNotContainsString(
-            get_string('actcfg_assign_cutoff', 'block_openaiagent', userdate(time() - (7 * DAYSECS))),
+            get_string('actcfg_assign_cutoff', 'block_openaiagent', userdate($cutoff)),
             $rules
         );
     }
