@@ -47,6 +47,19 @@ sesión no cambian: dos tests de referencia lo comprueban.
   (se puede cambiar), aunque el sitio conserve las demás indefinidamente.
 - **Caché de 10 minutos para el catálogo de visitantes.** Solo se guardan los
   resultados de las consultas a Moodle, nunca las respuestas del modelo.
+- **Ajustes tras una batería de 50 preguntas reales de visitantes:**
+  - **Filtro de enlaces en el servidor.** El modelo inventaba enlaces de soporte
+    inexistentes, y a veces el destino era literalmente `support_url`. Ahora solo
+    se mantienen los enlaces al propio sitio o a direcciones que aparecen en los
+    documentos del asistente; los demás se quedan como texto sin enlace.
+  - **Búsqueda sin coincidencias.** Si no coincide ninguna palabra («quiero
+    aprender a programar»), el modelo recibe el catálogo completo y decide qué
+    curso encaja.
+  - **Método manual oculto.** Cuando un curso tiene otra forma de inscribirse, el
+    visitante ya no ve la matrícula manual, que no puede usar y le confundía.
+  - **Instrucciones más precisas.** Las preguntas ajenas a la institución se
+    rechazan en una frase, y el soporte y el inicio de sesión solo se mencionan
+    cuando vienen al caso.
 
 ---
 

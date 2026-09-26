@@ -109,7 +109,7 @@ final class visitor_chat {
 
         return [
             'success' => (bool)$result['success'],
-            'reply' => (string)$result['reply'],
+            'reply' => link_guard::clean((string)$result['reply'], $blockinstanceid),
             'errorcode' => (string)$result['errorcode'],
             'conversationtoken' => $token,
         ];

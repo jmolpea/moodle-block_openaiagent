@@ -137,6 +137,19 @@ final class catalog {
             }
             $options[] = self::describe_instance($instance, $plugin, $scope);
         }
+
+        // Every Moodle course has a manual enrolment method, which a visitor can
+        // do nothing with. Listed next to a real way in, it read as a second,
+        // confusing option ("or the institution manages it"); it is kept only
+        // when it is the only way in, because then it is the answer.
+        if ($scope->is_visitor()) {
+            $selfservice = array_values(array_filter($options, static function (array $option): bool {
+                return !in_array($option['restriction'], [self::RESTRICTION_MANAGED, self::RESTRICTION_OTHER], true);
+            }));
+            if ($selfservice) {
+                $options = $selfservice;
+            }
+        }
         return $options;
     }
 

@@ -144,6 +144,17 @@ class search_catalog extends base_tool {
         foreach ($matches as $course) {
             $out[] = $this->describe($course, $scope, isset($mine[$course->id]));
         }
+
+        // Moodle's search matches words, not meaning: a visitor asking to
+        // "learn to program" found nothing although a Python course existed.
+        // For visitors, an empty search hands the model the catalogue itself
+        // so it can judge what fits, instead of reporting that nothing does.
+        if ($scope->is_visitor() && $query !== '' && !$out && $offset === 0) {
+            $catalogue = $this->execute(['limit' => $limit], $scope);
+            return ['query' => $query, 'no_match_for_query' => true,
+                'note' => 'No course contains those words. This is the whole catalogue: decide which courses, '
+                    . 'if any, fit what the person wants, and say so honestly if none does.'] + $catalogue;
+        }
         return [
             'query' => $query,
             'limited_to_category' => self::limited($scope)

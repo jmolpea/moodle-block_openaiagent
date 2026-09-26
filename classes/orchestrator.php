@@ -2004,8 +2004,14 @@ class orchestrator {
                 . 'ask for personal details. To see their own courses, grades or progress, or to enrol, '
                 . 'they have to log in or create an account: give them the links from '
                 . 'moodle.get_site_access_info. You cannot pass their question to a person; for that, '
-                . 'give them the support_url from moodle.get_site_access_info. Keep every answer brief: '
-                . 'a few sentences, at most a short list';
+                . 'give them the support_url from moodle.get_site_access_info; when support_url is null, say '
+                . 'the site has no support page and suggest contacting the institution, without any link. '
+                . 'Talk about support only when they ask for help or for a person. Never write a web '
+                . 'address that is not in a tool result or in the documents. Mention logging in only when '
+                . 'the question needs it. If the question has nothing to do with the institution, its '
+                . 'courses or this site (weather, poems, homework, general knowledge), do not answer it: '
+                . 'say in one sentence that you can only help with those. Keep every answer brief: a few '
+                . 'sentences, at most a short list';
         }
 
         if ($scope->pagecourseid > 0) {

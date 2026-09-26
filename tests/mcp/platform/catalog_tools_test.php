@@ -176,6 +176,46 @@ final class catalog_tools_test extends \advanced_testcase {
     }
 
     /**
+     * For a visitor, a search with no match hands over the catalogue, and the default manual method is hidden.
+     */
+    public function test_visitor_search_fallback_and_methods(): void {
+        global $DB;
+        set_config('forcelogin', 0);
+        $course = $this->getDataGenerator()->create_course(['fullname' => 'Python desde cero',
+            'category' => $this->category->id]);
+        $self = $DB->get_record('enrol', ['courseid' => $course->id, 'enrol' => 'self'], '*', MUST_EXIST);
+        $DB->update_record('enrol', (object)['id' => $self->id, 'status' => ENROL_INSTANCE_ENABLED, 'customint6' => 1]);
+        $manualonly = $this->getDataGenerator()->create_course(['fullname' => 'Solo manual',
+            'category' => $this->category->id]);
+
+        $result = registry::call('moodle.search_catalog', ['query' => 'programar'], $this->scope_for(0));
+        $this->assertTrue($result['no_match_for_query']);
+        $this->assertContains('Python desde cero', self::names($result));
+
+        // Logged-in users keep the plain search result.
+        $user = $this->getDataGenerator()->create_user();
+        $result = registry::call('moodle.search_catalog', ['query' => 'programar'], $this->scope_for((int)$user->id));
+        $this->assertArrayNotHasKey('no_match_for_query', $result);
+        $this->assertSame([], $result['courses']);
+
+        $types = fn(array $result) => array_column($result['methods'], 'type');
+        $visitor = registry::call('moodle.get_enrolment_options', ['target_course_id' => $course->id], $this->scope_for(0));
+        $this->assertSame(['self'], $types($visitor));
+        $visitor = registry::call(
+            'moodle.get_enrolment_options',
+            ['target_course_id' => $manualonly->id],
+            $this->scope_for(0)
+        );
+        $this->assertSame(['manual'], $types($visitor));
+        $loggedin = registry::call(
+            'moodle.get_enrolment_options',
+            ['target_course_id' => $course->id],
+            $this->scope_for((int)$user->id)
+        );
+        $this->assertContains('manual', $types($loggedin));
+    }
+
+    /**
      * Keys are never returned; costs, cohorts, payments and visitors are described.
      */
     public function test_get_enrolment_options(): void {
