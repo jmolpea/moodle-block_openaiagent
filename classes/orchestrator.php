@@ -124,6 +124,10 @@ class orchestrator {
             return self::error_result('error_assistantdisabled', $conversationid);
         }
         $platform = $scope !== null && $scope->is_platform();
+        // A visitor of a category or site assistant: the endpoint that let them
+        // in has already applied the visitor limits (visitor_guard), and the
+        // per-user limiter below would put every visitor in one bucket, user 0.
+        $visitor = $platform && $scope->is_visitor();
 
         // License backstop: no AI turn may proceed without a valid key bound to
         // this site, so the block holds on every call path even if the block-UI
@@ -155,7 +159,7 @@ class orchestrator {
         $message = $guard->message;
 
         // Rate limiting.
-        if (!rate_limiter::allow($userid)) {
+        if (!$visitor && !rate_limiter::allow($userid)) {
             return self::error_result('error_ratelimited', $conversationid);
         }
 
@@ -179,7 +183,9 @@ class orchestrator {
 
         // Persist the user message.
         conversation_repository::add_message($conversation->id, 'user', $message);
-        rate_limiter::record($userid);
+        if (!$visitor) {
+            rate_limiter::record($userid);
+        }
 
         // Deterministic assessment-integrity gate. A clearly multiple-choice or
         // true/false question must never reach an agent that could reveal the
@@ -1165,6 +1171,10 @@ class orchestrator {
         if ($maxmessages <= 0) {
             $maxmessages = 6;
         }
+        // Visitors get a shorter memory; only their profile sets this.
+        if (!empty($config['historylimit'])) {
+            $maxmessages = min($maxmessages, (int)$config['historylimit']);
+        }
         $request->messages = conversation_repository::recent_history((int)$conversation->id, $maxmessages);
         $last = end($request->messages);
         if ($last === false || $last['role'] !== 'user' || $last['content'] !== $message) {
@@ -1986,6 +1996,17 @@ class orchestrator {
             ? 'this assistant belongs to the course category "' . $category->get_formatted_name() . '" of the site "'
                 . format_string($SITE->fullname) . '"'
             : 'this assistant belongs to the site "' . format_string($SITE->fullname) . '"';
+
+        if ($scope->is_visitor()) {
+            // Said here, next to the user turn, because it overrides the
+            // platform prompt's assumption of a logged-in participant.
+            $bits[] = 'the person is NOT logged in: nothing about them is available, and you must not '
+                . 'ask for personal details. To see their own courses, grades or progress, or to enrol, '
+                . 'they have to log in or create an account: give them the links from '
+                . 'moodle.get_site_access_info. You cannot pass their question to a person; for that, '
+                . 'give them the support_url from moodle.get_site_access_info. Keep every answer brief: '
+                . 'a few sentences, at most a short list';
+        }
 
         if ($scope->pagecourseid > 0) {
             $fullname = $DB->get_field('course', 'fullname', ['id' => $scope->pagecourseid]);

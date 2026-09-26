@@ -52,4 +52,25 @@ class behat_block_openaiagent extends behat_base {
         $courseid = $DB->get_field('course', 'id', ['shortname' => $shortname], MUST_EXIST);
         $DB->set_field('course', 'enableaitools', $state === 'enabled' ? 1 : 0, ['id' => $courseid]);
     }
+
+    /**
+     * Open or close the assistant of a category to visitors who are not logged in.
+     *
+     * The same stored setting the block form writes for a manager.
+     *
+     * @Given /^the assistant of the "(?P<idnumber_string>(?:[^"]|\\")*)" category is (open|closed) to visitors$/
+     * @param string $idnumber Category id number.
+     * @param string $state "open" or "closed".
+     */
+    public function the_assistant_of_the_category_is_to_visitors(string $idnumber, string $state): void {
+        global $DB;
+
+        $categoryid = $DB->get_field('course_categories', 'id', ['idnumber' => $idnumber], MUST_EXIST);
+        $context = \context_coursecat::instance($categoryid);
+        $block = $DB->get_record('block_instances', ['blockname' => 'openaiagent', 'parentcontextid' => $context->id],
+            '*', MUST_EXIST);
+        $config = $block->configdata ? unserialize_object(base64_decode($block->configdata)) : new \stdClass();
+        $config->visitors = $state === 'open' ? 1 : 0;
+        $DB->set_field('block_instances', 'configdata', base64_encode(serialize($config)), ['id' => $block->id]);
+    }
 }

@@ -705,4 +705,62 @@ if ($ADMIN->fulltree) {
         '',
         PARAM_RAW
     ));
+
+    // Visitors who are not logged in. These are site-wide ceilings: each
+    // category or site assistant is opened to visitors in its own block
+    // settings, and no block can exceed them. Every default works untouched.
+    $settings->add(new admin_setting_heading(
+        $component . '/visitor_heading',
+        get_string('settings_visitor_heading', $component),
+        get_string('settings_visitor_heading_desc', $component)
+    ));
+    $visitorints = [
+        'visitor_rate_limit_count' => 10,
+        'visitor_rate_limit_minutes' => 10,
+        'visitor_daily_cap' => 300,
+        'visitor_max_chars' => 500,
+        'visitor_history_turns' => 4,
+        'visitor_max_output_tokens' => 1500,
+        'visitor_retention_hours' => 24,
+    ];
+    foreach ($visitorints as $name => $default) {
+        $settings->add(new admin_setting_configtext(
+            $component . '/' . $name,
+            get_string('settings_' . $name, $component),
+            get_string('settings_' . $name . '_desc', $component),
+            $default,
+            PARAM_INT
+        ));
+    }
+    $settings->add(new admin_setting_configselect(
+        $component . '/visitor_captcha',
+        get_string('settings_visitor_captcha', $component),
+        get_string('settings_visitor_captcha_desc', $component),
+        '',
+        [
+            '' => get_string('settings_visitor_captcha_none', $component),
+            'turnstile' => get_string('settings_visitor_captcha_turnstile', $component),
+            'recaptchav3' => get_string('settings_visitor_captcha_recaptchav3', $component),
+        ]
+    ));
+    $settings->add(new admin_setting_configtext(
+        $component . '/visitor_captcha_sitekey',
+        get_string('settings_visitor_captcha_sitekey', $component),
+        get_string('settings_visitor_captcha_sitekey_desc', $component),
+        '',
+        PARAM_RAW_TRIMMED
+    ));
+    $settings->add(new admin_setting_configpasswordunmask(
+        $component . '/visitor_captcha_secret',
+        get_string('settings_visitor_captcha_secret', $component),
+        get_string('settings_visitor_captcha_secret_desc', $component),
+        ''
+    ));
+    $settings->add(new admin_setting_configtext(
+        $component . '/visitor_captcha_threshold',
+        get_string('settings_visitor_captcha_threshold', $component),
+        get_string('settings_visitor_captcha_threshold_desc', $component),
+        '0.5',
+        PARAM_FLOAT
+    ));
 }

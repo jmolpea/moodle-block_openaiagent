@@ -28,8 +28,9 @@ define([
     'core/ajax',
     'core/notification',
     'core/str',
-    'core/templates'
-], function(Ajax, Notification, Str, Templates) {
+    'core/templates',
+    'block_openaiagent/captcha'
+], function(Ajax, Notification, Str, Templates, Captcha) {
     'use strict';
 
     /**
@@ -44,6 +45,10 @@ define([
         this.strings = config.strings || {};
         this.avatarUrl = config.avatarurl || '';
         this.conversationId = 0;
+        // Set only for a visitor who is not logged in: the page token, captcha
+        // settings and message limit issued by the server for this page.
+        this.visitor = config.visitor || null;
+        this.conversationToken = '';
         this.isOpen = false;
         this.sending = false;
         this.loaded = false;
@@ -59,6 +64,9 @@ define([
 
         this.initElements();
         this.bindEvents();
+        if (this.visitor && this.input && this.visitor.maxchars) {
+            this.input.maxLength = this.visitor.maxchars;
+        }
     }
 
     /** Initialize DOM elements. */
@@ -152,6 +160,10 @@ define([
     ChatController.prototype.loadHistory = function() {
         var self = this;
         this.loaded = true;
+        // A visitor's conversation lives only for this page view.
+        if (this.visitor) {
+            return;
+        }
 
         Ajax.call([{
             methodname: 'block_openaiagent_get_conversation',
@@ -197,7 +209,7 @@ define([
         this.setSending(true);
         this.showTyping();
 
-        Ajax.call([{
+        var request = this.visitor ? this.sendPublicMessage(message) : Ajax.call([{
             methodname: 'block_openaiagent_send_message',
             args: {
                 courseid: this.courseId,
@@ -206,11 +218,15 @@ define([
                 blockid: this.blockId,
                 pagecourseid: this.pageCourseId
             }
-        }])[0].then(function(result) {
+        }])[0];
+        request.then(function(result) {
             self.hideTyping();
             self.setSending(false);
             if (result.conversationid) {
                 self.conversationId = result.conversationid;
+            }
+            if (result.conversationtoken) {
+                self.conversationToken = result.conversationtoken;
             }
             self.addMessage(result.reply, 'assistant', true);
             self.renderActions(result.actions);
@@ -221,6 +237,32 @@ define([
             self.setSending(false);
             self.showAssistantError();
             Notification.exception(error);
+        });
+    };
+
+    /**
+     * Send a visitor's message through the no-login endpoint.
+     *
+     * @param {String} message Message text.
+     * @return {Promise} Resolves to the same shape as a logged-in reply.
+     */
+    ChatController.prototype.sendPublicMessage = function(message) {
+        var self = this;
+        return Captcha.token(this.visitor.captcha).then(function(captchatoken) {
+            return Ajax.call([{
+                methodname: 'block_openaiagent_send_public_message',
+                args: {
+                    blockid: self.blockId,
+                    message: message,
+                    conversationtoken: self.conversationToken,
+                    pagecourseid: self.pageCourseId,
+                    pagetoken: self.visitor.pagetoken,
+                    captchatoken: captchatoken
+                }
+            }], true, false)[0];
+        }).then(function(result) {
+            result.actions = [];
+            return result;
         });
     };
 
@@ -235,6 +277,17 @@ define([
     ChatController.prototype.startNewConversation = function() {
         var self = this;
         if (this.sending) {
+            return;
+        }
+        if (this.visitor) {
+            // Nothing is stored against a visitor: forgetting the token is enough.
+            this.conversationToken = '';
+            if (this.messagesContainer) {
+                this.messagesContainer.innerHTML = '';
+            }
+            if (this.input) {
+                this.input.focus();
+            }
             return;
         }
         Ajax.call([{

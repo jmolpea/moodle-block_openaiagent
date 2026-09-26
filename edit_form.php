@@ -123,5 +123,27 @@ class block_openaiagent_edit_form extends block_edit_form {
             $mform->setDefault('config_coursetoolsincourse', 1);
             $mform->addHelpButton('config_coursetoolsincourse', 'config_coursetoolsincourse', 'block_openaiagent');
         }
+
+        // Visitors who are not logged in: category and site assistants only, and
+        // only for those allowed to open one (every visitor message is paid with
+        // the site's provider key). instance_config_save() keeps the stored value
+        // for everyone else.
+        $siteblock = $parent && $parent->contextlevel == CONTEXT_COURSE && (int)$parent->instanceid === (int)SITEID;
+        $categoryblock = $parent && $parent->contextlevel == CONTEXT_COURSECAT;
+        if (
+            ($siteblock || $categoryblock || ($parent && $parent->contextlevel == CONTEXT_SYSTEM))
+            && has_capability('block/openaiagent:managepublicaccess', $this->block->context)
+        ) {
+            $mform->addElement('header', 'visitorheader', get_string('config_visitorheader', 'block_openaiagent'));
+            $mform->addElement('advcheckbox', 'config_visitors', get_string('config_visitors', 'block_openaiagent'));
+            $mform->setDefault('config_visitors', 0);
+            $mform->addHelpButton('config_visitors', 'config_visitors', 'block_openaiagent');
+            $mform->addElement(
+                'static',
+                'visitorcost',
+                get_string('config_visitorcost', 'block_openaiagent'),
+                \block_openaiagent\local\visitor_cost::describe()
+            );
+        }
     }
 }

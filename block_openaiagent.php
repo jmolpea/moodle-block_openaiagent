@@ -85,6 +85,12 @@ class block_openaiagent extends block_base {
             return $this->content;
         }
 
+        // A visitor who is not logged in, or a guest, on a category or site
+        // assistant. Everything below is for logged-in users and is unchanged.
+        if ($scope->is_platform() && $scope->is_visitor()) {
+            return $this->visitor_content($scope);
+        }
+
         // Check if user has permission to use the chat. A course assistant checks
         // the course context, as always; a category or site assistant checks its
         // own block context, so role overrides on the category apply to it.
@@ -134,6 +140,20 @@ class block_openaiagent extends block_base {
             return $this->content;
         }
 
+        return $this->chat_content($courseid, $scope->pagecourseid, null);
+    }
+
+    /**
+     * Render the chat card and load its script.
+     *
+     * @param int $courseid Owning course id.
+     * @param int $pagecourseid Validated course of the page (0 = none).
+     * @param array|null $visitor Visitor settings for the browser, or null for a logged-in user.
+     * @return stdClass The block content.
+     */
+    private function chat_content(int $courseid, int $pagecourseid, ?array $visitor): stdClass {
+        global $USER, $OUTPUT;
+
         // Get cosmetic configuration.
         $botname = !empty($this->config->botname)
             ? $this->config->botname
@@ -156,7 +176,9 @@ class block_openaiagent extends block_base {
             'welcomemessage' => format_string($welcomemessage),
             'cardsubtitle' => format_string($cardsubtitle),
             'avatarurl' => $avatarurl,
-            'str_greeting' => get_string('greeting', 'block_openaiagent', format_string($USER->firstname)),
+            'str_greeting' => $visitor === null
+                ? get_string('greeting', 'block_openaiagent', format_string($USER->firstname))
+                : get_string('greeting_visitor', 'block_openaiagent'),
             // Pre-processed strings for template.
             'str_openchat' => get_string('openchat', 'block_openaiagent'),
             'str_closechat' => get_string('closechat', 'block_openaiagent'),
@@ -172,7 +194,7 @@ class block_openaiagent extends block_base {
             'courseid' => $courseid,
             // Only a category block shown inside one of its courses sets this, and
             // the server validates it again on every request.
-            'pagecourseid' => $scope->pagecourseid,
+            'pagecourseid' => $pagecourseid,
             'avatarurl' => $avatarurl,
             'strings' => [
                 'thinking' => get_string('thinking', 'block_openaiagent'),
@@ -181,6 +203,12 @@ class block_openaiagent extends block_base {
             ],
         ];
 
+        // A visitor's chat talks to the no-login endpoint with the page token,
+        // captcha settings and message limit the server issued for this page.
+        if ($visitor !== null) {
+            $jsconfig['visitor'] = $visitor;
+        }
+
         // Load JS module.
         $this->page->requires->js_call_amd('block_openaiagent/chat', 'init', [$jsconfig]);
 
@@ -188,6 +216,27 @@ class block_openaiagent extends block_base {
         $this->content->text = $OUTPUT->render_from_template('block_openaiagent/block', $data);
 
         return $this->content;
+    }
+
+    /**
+     * The block for a visitor who is not logged in.
+     *
+     * Shown only on a category or site assistant that an administrator opened
+     * to visitors, on a site that does not force login. Otherwise, as before,
+     * a visitor sees nothing.
+     *
+     * @param \block_openaiagent\local\scope $scope Visitor scope.
+     * @return stdClass The block content.
+     */
+    private function visitor_content(\block_openaiagent\local\scope $scope): stdClass {
+        if (!\block_openaiagent\local\visitor_chat::available($scope)) {
+            return $this->content;
+        }
+        return $this->chat_content($scope->courseid, $scope->pagecourseid, [
+            'pagetoken' => \block_openaiagent\local\visitor_guard::issue_page_token((int)$this->instance->id),
+            'captcha' => \block_openaiagent\local\visitor_guard::captcha(),
+            'maxchars' => \block_openaiagent\local\visitor_guard::setting('visitor_max_chars', 500, 50),
+        ]);
     }
 
     /**
@@ -269,6 +318,27 @@ class block_openaiagent extends block_base {
      */
     public function has_config() {
         return true;
+    }
+
+    /**
+     * Save the block settings, keeping the visitor switch out of reach.
+     *
+     * Moodle replaces the whole configuration with what the form submitted.
+     * The visitor switch is only shown to those who may open the assistant to
+     * visitors, so for anyone else it would vanish from the submission and be
+     * switched off, or, worse, could be forged on. For them the stored value is
+     * kept, whatever arrives.
+     *
+     * @param stdClass $data Submitted configuration.
+     * @param bool $nolongerused Unused, kept for the parent signature.
+     * @return bool
+     */
+    public function instance_config_save($data, $nolongerused = false) {
+        if (!has_capability('block/openaiagent:managepublicaccess', $this->context)) {
+            $current = isset($this->config->visitors) ? (int)$this->config->visitors : 0;
+            $data->visitors = $current;
+        }
+        return parent::instance_config_save($data, $nolongerused);
     }
 
     /**

@@ -42,6 +42,28 @@ Feature: Use the assistant outside a course
     And I follow "Posgrado"
     Then I should not see "How can I help you today?"
 
+  Scenario: A category assistant opened to visitors greets someone who is not logged in
+    Given the following "blocks" exist:
+      | blockname   | contextlevel | reference | pagetypepattern |
+      | openaiagent | Category     | POS       | *               |
+    And the following config values are set as admin:
+      | forcelogin | 0 |
+    And the assistant of the "POS" category is open to visitors
+    When I am on course index
+    And I follow "Posgrado"
+    Then I should see "Hi!" in the "Smart Tutor & Support AI" "block"
+    And I should see "How can I help you today?" in the "Smart Tutor & Support AI" "block"
+
+  Scenario: Opening an assistant to visitors changes nothing for a logged-in user
+    Given the following "blocks" exist:
+      | blockname   | contextlevel | reference | pagetypepattern |
+      | openaiagent | Category     | POS       | *               |
+    And the assistant of the "POS" category is open to visitors
+    And I log in as "visitor1"
+    When I am on course index
+    And I follow "Posgrado"
+    Then I should see "Hi, Pablo!" in the "Smart Tutor & Support AI" "block"
+
   Scenario: On the Dashboard the block tells its owner to move it instead of opening a chat
     Given the following "blocks" exist:
       | blockname   | contextlevel | reference | pagetypepattern | defaultregion |

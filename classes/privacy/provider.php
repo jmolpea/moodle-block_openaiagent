@@ -126,6 +126,18 @@ class provider implements
             'privacy:metadata:supportmailbox'
         );
 
+        // Visitors who are not logged in, only when the site configures an
+        // invisible captcha: the token and their address go to the provider to
+        // be verified. Nothing is stored about them on the site in return.
+        $collection->add_external_location_link(
+            'captchaprovider',
+            [
+                'remoteip' => 'privacy:metadata:captchaprovider:remoteip',
+                'token' => 'privacy:metadata:captchaprovider:token',
+            ],
+            'privacy:metadata:captchaprovider'
+        );
+
         // Everything that actually leaves the site for the model, named field
         // by field. The user id is deliberately NOT among them: the identity
         // block sends a first name and nothing else. What is easy to overlook,

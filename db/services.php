@@ -34,6 +34,17 @@ $functions = [
         'loginrequired' => true,
         'capabilities' => 'block/openaiagent:use',
     ],
+    // The only function reachable without logging in. It answers solely for a
+    // category or site block whose administrator opened it to visitors, and
+    // enforces the page token, captcha and limits itself (visitor_guard).
+    'block_openaiagent_send_public_message' => [
+        'classname' => 'block_openaiagent\external\send_public_message',
+        'methodname' => 'execute',
+        'description' => 'Send a message to a category or site assistant open to visitors',
+        'type' => 'write',
+        'ajax' => true,
+        'loginrequired' => false,
+    ],
     'block_openaiagent_get_conversation' => [
         'classname' => 'block_openaiagent\external\get_conversation',
         'methodname' => 'execute',

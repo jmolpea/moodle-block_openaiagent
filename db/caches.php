@@ -37,4 +37,19 @@ $definitions = [
         'simpledata' => true,
         'ttl' => 86400, // 1 day — matches the daily window.
     ],
+    // Visitor protections: per-address windows, the daily ceiling, the daily
+    // notice flag and the conversation tokens. Keys never contain an address,
+    // only a keyed hash of it.
+    'visitor' => [
+        'mode' => cache_store::MODE_APPLICATION,
+        'simpledata' => true,
+        'ttl' => 86400,
+    ],
+    // Results of the catalogue tools for visitors: the same public answer for
+    // everybody, so repeated questions do not repeat the queries.
+    'visitortools' => [
+        'mode' => cache_store::MODE_APPLICATION,
+        'simpledata' => true,
+        'ttl' => 21600, // 6 hours.
+    ],
 ];

@@ -112,6 +112,28 @@ $capabilities = [
             'manager' => CAP_ALLOW,
         ],
     ],
+    // Use a category or site assistant without logging in, once an administrator
+    // has opened that block to visitors. Held by the guest role, which is also
+    // the role of users who are not logged in; a site can prohibit it on a
+    // category. Never checked for a course assistant.
+    'block/openaiagent:usepublic' => [
+        'captype' => 'read',
+        'contextlevel' => CONTEXT_BLOCK,
+        'archetypes' => [
+            'guest' => CAP_ALLOW,
+        ],
+    ],
+    // Open a category or site assistant to visitors who are not logged in.
+    // Each visitor message is paid with the site's provider key, so this is
+    // kept to managers and deliberately not cloned from any editing capability.
+    'block/openaiagent:managepublicaccess' => [
+        'riskbitmask' => RISK_CONFIG,
+        'captype' => 'write',
+        'contextlevel' => CONTEXT_BLOCK,
+        'archetypes' => [
+            'manager' => CAP_ALLOW,
+        ],
+    ],
     // Manage global plugin configuration (secrets, models, endpoints).
     'block/openaiagent:manageglobalconfig' => [
         'riskbitmask' => RISK_CONFIG,

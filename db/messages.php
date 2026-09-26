@@ -40,4 +40,13 @@ $messageproviders = [
             'email' => MESSAGE_PERMITTED + MESSAGE_DEFAULT_ENABLED,
         ],
     ],
+    // Tells site administrators, at most once a day, that visitors reached the
+    // daily message ceiling and the assistant stopped answering them.
+    'visitorcap' => [
+        'capability' => 'moodle/site:config',
+        'defaults' => [
+            'popup' => MESSAGE_PERMITTED + MESSAGE_DEFAULT_ENABLED,
+            'email' => MESSAGE_PERMITTED + MESSAGE_DEFAULT_ENABLED,
+        ],
+    ],
 ];

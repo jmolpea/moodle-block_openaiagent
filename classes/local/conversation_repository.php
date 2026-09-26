@@ -512,6 +512,23 @@ class conversation_repository {
     }
 
     /**
+     * Delete visitor conversations (user 0) not modified since a cutoff, with their messages.
+     *
+     * @param int $cutoff Unix timestamp.
+     * @return int Number of conversations deleted.
+     */
+    public static function purge_visitor_conversations_older_than(int $cutoff): int {
+        global $DB;
+        $ids = $DB->get_fieldset_select(self::CONVERSATIONS, 'id', 'userid = 0 AND timemodified < ?', [$cutoff]);
+        foreach (array_chunk($ids, 200) as $chunk) {
+            [$insql, $params] = $DB->get_in_or_equal($chunk);
+            $DB->delete_records_select(self::MESSAGES, "conversationid $insql", $params);
+            $DB->delete_records_select(self::CONVERSATIONS, "id $insql", $params);
+        }
+        return count($ids);
+    }
+
+    /**
      * Delete conversations (and their messages) not modified since a cutoff.
      *
      * Messages are removed before their parent conversations so no orphan

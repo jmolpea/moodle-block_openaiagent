@@ -47,6 +47,15 @@ class purge_conversations_task extends \core\task\scheduled_task {
      * @return void
      */
     public function execute(): void {
+        // Visitor conversations have their own, short retention, applied even
+        // on sites that keep logged-in conversations for ever: nobody can ever
+        // read them back, so there is no reason to keep them.
+        $hours = \block_openaiagent\local\visitor_guard::setting('visitor_retention_hours', 24, 1);
+        $visitors = conversation_repository::purge_visitor_conversations_older_than(time() - $hours * HOURSECS);
+        if ($visitors > 0) {
+            mtrace("block_openaiagent: purged {$visitors} visitor conversation(s) older than {$hours} hour(s).");
+        }
+
         $days = (int)get_config('block_openaiagent', 'conversation_retention_days');
         if ($days <= 0) {
             // Retention disabled: never auto-delete.

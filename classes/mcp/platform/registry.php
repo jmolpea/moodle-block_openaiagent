@@ -168,6 +168,41 @@ final class registry {
     }
 
     /**
+     * A public tool's result for visitors, from a shared cache.
+     *
+     * Only the tool results are cached, never the model's answers: a visitor
+     * can steer an answer with their own words, and a cached answer would be
+     * served to the next visitor. A tool result is plain Moodle data, and for
+     * visitors it is the same for everyone who asks the same thing.
+     *
+     * @param tool $tool The tool.
+     * @param array $input Arguments.
+     * @param scope $scope Visitor scope.
+     * @return array
+     */
+    private static function cached_public_call(tool $tool, array $input, scope $scope): array {
+        ksort($input);
+        $key = sha1(implode('|', [
+            $tool->name(),
+            json_encode($input),
+            $scope->blockinstanceid,
+            $scope->pagecourseid,
+            current_language(),
+        ]));
+        $cache = \cache::make('block_openaiagent', 'visitortools');
+        $cached = $cache->get($key);
+        if (is_string($cached)) {
+            $decoded = json_decode($cached, true);
+            if (is_array($decoded)) {
+                return $decoded;
+            }
+        }
+        $result = $tool->execute($input, $scope);
+        $cache->set($key, json_encode($result));
+        return $result;
+    }
+
+    /**
      * Run a platform tool, auditing the call.
      *
      * @param string $name Tool name.
@@ -188,7 +223,9 @@ final class registry {
         $ok = false;
         $errtype = '';
         try {
-            $result = $permitted[$name]->execute($input, $scope);
+            $result = $scope->is_visitor()
+                ? self::cached_public_call($permitted[$name], $input, $scope)
+                : $permitted[$name]->execute($input, $scope);
             $ok = true;
             return $result;
         } catch (\Throwable $e) {

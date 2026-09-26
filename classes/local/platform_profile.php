@@ -63,6 +63,21 @@ final class platform_profile {
 
         $config = self::form_texts($config);
         $config['scope'] = $scope;
+
+        if ($scope->is_visitor()) {
+            // No account, so no escalation: a support request needs a name and
+            // an address to answer. The visitor is given the site support page
+            // instead (see the visitor line of the identity directive).
+            $config['support']['enabled'] = false;
+            // A short memory, and a cost ceiling on each answer. The ceiling is
+            // generous on purpose: on reasoning models it also has to cover the
+            // reasoning, and brevity is asked for in the instructions instead.
+            $config['historylimit'] = 2 * visitor_guard::setting('visitor_history_turns', 4, 1);
+            $ceiling = visitor_guard::setting('visitor_max_output_tokens', 1500, 200);
+            $config['maxoutputtokensoverride'] = $config['maxoutputtokensoverride'] === null
+                ? $ceiling
+                : min((int)$config['maxoutputtokensoverride'], $ceiling);
+        }
         return $config;
     }
 

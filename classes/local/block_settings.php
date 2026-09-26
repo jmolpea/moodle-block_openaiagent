@@ -72,4 +72,35 @@ final class block_settings {
         $config = self::config($blockinstanceid);
         return !isset($config->coursetoolsincourse) || (int)$config->coursetoolsincourse === 1;
     }
+
+    /**
+     * Whether an administrator opened this block to visitors (default no).
+     *
+     * @param int $blockinstanceid Block instance id.
+     * @return bool
+     */
+    public static function visitors_switched_on(int $blockinstanceid): bool {
+        $config = self::config($blockinstanceid);
+        return isset($config->visitors) && (int)$config->visitors === 1;
+    }
+
+    /**
+     * Whether a visitor may use this assistant right now.
+     *
+     * Every condition must hold: a category or site block, switched on for
+     * visitors, a site that does not force login, and the visitor capability in
+     * the block's context for the current (not logged in or guest) user.
+     *
+     * @param scope $scope Scope resolved for the visitor.
+     * @return bool
+     */
+    public static function open_to_visitors(scope $scope): bool {
+        global $CFG;
+
+        return $scope->is_platform()
+            && $scope->is_visitor()
+            && empty($CFG->forcelogin)
+            && self::visitors_switched_on($scope->blockinstanceid)
+            && has_capability('block/openaiagent:usepublic', $scope->context);
+    }
 }
