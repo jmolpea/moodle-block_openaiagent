@@ -7,6 +7,40 @@ usa [Versionado Semántico](https://semver.org/lang/es/).
 
 ---
 
+## [4.20.0] — sin publicar
+
+Certificados e insignias en el asistente de categoría y de portada.
+
+### Añadido
+
+- **Herramienta nueva `moodle.get_my_credentials`**, solo para usuarios con sesión
+  iniciada. Reúne en una sola lista los certificados e insignias del participante,
+  de todas las fuentes instaladas en el sitio:
+  - insignias de Moodle;
+  - certificados de `mod_customcert`;
+  - certificados de `tool_certificate`;
+  - insignias de Open Badge Factory (`local_obf`), cuando está conectado a una
+    cuenta.
+
+  Cada fuente se lee con la API de su propio plugin, nunca con consultas a sus
+  tablas, y solo se usa si el plugin está instalado.
+- **Enlaces que funcionan sin acceso al curso.** De cada credencial se da el
+  nombre, el curso, la fecha, la caducidad, el código de verificación y el enlace
+  para descargarla o verla. Los enlaces siguen funcionando aunque el curso esté
+  oculto o la matrícula haya caducado, que es justo cuando alguien busca un
+  certificado antiguo.
+- **Sin duplicados.** Una insignia que llega por dos fuentes (emitida en Moodle y
+  en Open Badge Factory) aparece una sola vez.
+- **Instrucciones:** el asistente entrega el enlace y avisa si la credencial ha
+  caducado. Cómo *solicitar* un certificado institucional sigue respondiéndose con
+  los documentos de la institución. El enrutador incluye ejemplos de las dos
+  cosas.
+- **Privacidad:** se declaran los datos de las credenciales que llegan al
+  proveedor y la consulta que `local_obf` hace a Open Badge Factory con el correo
+  del participante.
+
+---
+
 ## [4.19.0] — sin publicar
 
 Visitantes sin iniciar sesión. Un asistente de categoría o de portada puede

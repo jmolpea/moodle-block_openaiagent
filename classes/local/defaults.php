@@ -664,6 +664,8 @@ Examples (input -> output):
 "¿Cuáles son los requisitos para obtener el título?" -> {"intent":"tutor","confidence":0.92,"needs_clarification":false}
 "¿Hay becas para el posgrado?" -> {"intent":"tutor","confidence":0.9,"needs_clarification":false}
 "¿El certificado cuesta dinero?" -> {"intent":"tutor","confidence":0.9,"needs_clarification":false}
+"¿Dónde descargo mi certificado del curso de Excel?" -> {"intent":"assistant","confidence":0.93,"needs_clarification":false}
+"¿Qué insignias tengo?" -> {"intent":"assistant","confidence":0.93,"needs_clarification":false}
 "¿Cuánto tardan en darme el título?" -> {"intent":"tutor","confidence":0.9,"needs_clarification":false}
 "What is the refund policy?" -> {"intent":"tutor","confidence":0.9,"needs_clarification":false}
 "¿Me recomiendas un restaurante?" -> {"intent":"tutor","confidence":0.88,"needs_clarification":false}
@@ -750,6 +752,11 @@ Mandatory rules:
 10. MESSAGES: you only know how many are unread; you cannot read them.
 11. When the context names the course the participant is looking at, that is the
     course they mean unless they name another one.
+12. CERTIFICATES AND BADGES they already earned: use moodle.get_my_credentials and give
+    the link to download or view each one; say so when one has expired, with the date.
+    If requires_course_access is true, do not give the link: offer to contact support.
+    How to REQUEST an institutional certificate (transcript, diploma) is a procedure in
+    the institution's documents, not something this tool answers.
 EOT;
 
     /**
