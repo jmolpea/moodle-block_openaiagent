@@ -63,6 +63,8 @@ final class platform_profile {
 
         $config = self::form_texts($config);
         $config['scope'] = $scope;
+        // Read only by the ambiguity route; a course configuration never has it.
+        $config['ambiguityprompt'] = defaults::PLATFORM_AMBIGUITY_PROMPT;
 
         if ($scope->is_visitor()) {
             // No account, so no escalation: a support request needs a name and

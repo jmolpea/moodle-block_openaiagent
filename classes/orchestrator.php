@@ -1124,7 +1124,9 @@ class orchestrator {
             ];
         }
 
-        $instructions = $this->compose_instructions($agent->baseprompt, $config, 'ambiguity', $conversation, $message);
+        // A category or site assistant brings its own; a course uses the agent's, as always.
+        $baseprompt = $config['ambiguityprompt'] ?? $agent->baseprompt;
+        $instructions = $this->compose_instructions($baseprompt, $config, 'ambiguity', $conversation, $message);
         return $this->execute_agent($agent, $instructions, $message, [], $config, $conversation);
     }
 
@@ -2002,8 +2004,9 @@ class orchestrator {
             // platform prompt's assumption of a logged-in participant.
             $bits[] = 'the person is NOT logged in: nothing about them is available, and you must not '
                 . 'ask for personal details. To see their own courses, grades or progress, or to enrol, '
-                . 'they have to log in or create an account: give them the links from '
-                . 'moodle.get_site_access_info. You cannot pass their question to a person; for that, '
+                . 'they have to log in, or create an account only if moodle.get_site_access_info says '
+                . 'self_registration is true: give them the links from that tool. You cannot pass their '
+                . 'question to a person; for that, '
                 . 'give them the support_url from moodle.get_site_access_info; when support_url is null, say '
                 . 'the site has no support page and suggest contacting the institution, without any link. '
                 . 'Talk about support only when they ask for help or for a person. Never write a web '
