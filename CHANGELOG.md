@@ -46,6 +46,43 @@ Certificados e insignias en el asistente de categoría y de portada.
   proveedor y la consulta que `local_obf` hace a Open Badge Factory con el correo
   del participante.
 
+### Cambiado: cuándo aparece la tarjeta de soporte
+
+La tarjeta aparecía sin que nadie la pidiera, y una tarjeta ignorada bloqueaba la
+conversación. Las pruebas manuales no lo detectaban porque probaban justo los dos
+caminos que sí funcionaban. Ahora la tarjeta aparece cuando hace falta y solo
+entonces:
+
+- **Cuando la piden:** «quiero hablar con una persona», «envía tú la solicitud»,
+  «abrir una incidencia». Si el primer mensaje solo pide una persona, sin decir
+  qué pasa, el asistente pregunta qué ocurre y la respuesta genera la tarjeta,
+  que así describe un problema real.
+- **Cuando aceptan una oferta.** El asistente ofrece preparar la solicitud (con
+  una pregunta del tipo «¿Quieres que prepare la solicitud al equipo de
+  soporte?») cuando no puede resolver algo por sí mismo: le piden algo que solo
+  puede hacer el personal (cambiar una nota, ampliar un plazo, reabrir un
+  intento), falla una herramienta o el participante sigue atascado. La tarjeta
+  sale al aceptar.
+- **Ya no aparece:**
+  - cuando solo preguntan *cómo* contactar con soporte: se les explica, con una
+    frase que recuerda que el asistente puede prepararla;
+  - bajo una respuesta que termina en «si persiste, contacta con soporte»;
+  - después de un aviso de reserva, un fallo o una pregunta repetida. En esos
+    casos el asistente ofrece la solicitud y pregunta antes de prepararla.
+- **Una tarjeta sin responder ya no bloquea la conversación.** Antes, durante sus
+  24 horas de vida, impedía cualquier otra solicitud. Ahora una tarjeta nueva
+  sustituye a la pendiente (en el chat también) y la tarjeta pendiente se coloca
+  bajo la última respuesta.
+- **Motivos reales cuando no se puede.** Si hoy no se puede preparar una
+  solicitud (límite diario del participante o del curso, espera entre
+  solicitudes), el asistente recibe el motivo y lo dice. Antes se le decía que
+  siempre podía enviarla y se inventaba el motivo, con referencia y fecha
+  incluidas.
+- **Resumen en primera persona.** Tanto el resumen que redacta el asistente como
+  el que prepara el servidor van en la voz del participante («No puedo abrir el
+  cuestionario del módulo 1…»), solo con lo que ha dicho, sin suponer su género
+  ni la causa. Si no hay ningún problema concreto que enviar, no hay tarjeta.
+
 ### Corregido (auditoría previa a la publicación)
 
 - **El coste del panel de analítica solo existía para OpenAI.** Los modelos de

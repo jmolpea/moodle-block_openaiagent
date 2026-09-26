@@ -146,11 +146,27 @@ final class support_gate_test extends \advanced_testcase {
     }
 
     /**
-     * Asking for a person works on the very first message.
+     * Asking for a person, with the problem, works on the very first message.
      */
     public function test_asking_for_a_person_is_offered_immediately(): void {
-        $verdict = $this->gate('quiero hablar con una persona de soporte');
+        $verdict = $this->gate('quiero hablar con una persona de soporte, no puedo entrar al curso');
 
+        $this->assertTrue($verdict['allowed']);
+        $this->assertSame(support_gate::TRIGGER_ASKED, $verdict['trigger']);
+    }
+
+    /**
+     * A bare "I want a person" opening waits for the problem, and the answer opens the gate.
+     */
+    public function test_bare_request_waits_for_the_problem(): void {
+        conversation_repository::add_message($this->conversation->id, 'user', 'quiero hablar con una persona');
+        $verdict = $this->gate('quiero hablar con una persona');
+        $this->assertFalse($verdict['allowed']);
+        $this->assertSame(support_gate::DENIED_NEEDDETAIL, $verdict['reason']);
+
+        $this->assistant_said('Claro, ¿qué problema tienes?');
+        conversation_repository::add_message($this->conversation->id, 'user', 'el examen no carga');
+        $verdict = $this->gate('el examen no carga');
         $this->assertTrue($verdict['allowed']);
         $this->assertSame(support_gate::TRIGGER_ASKED, $verdict['trigger']);
     }
@@ -506,15 +522,74 @@ final class support_gate_test extends \advanced_testcase {
     }
 
     /**
-     * An unanswered draft blocks a second one in the same conversation.
+     * An unanswered card no longer locks the conversation: a new draft replaces it.
      */
-    public function test_pending_draft_denies(): void {
-        $this->make_request(supportrequest::STATUS_DRAFT);
+    public function test_pending_draft_does_not_deny_and_is_replaced(): void {
+        $old = $this->make_request(supportrequest::STATUS_DRAFT);
 
-        $verdict = $this->gate('quiero hablar con una persona');
+        $verdict = $this->gate('quiero hablar con una persona, el examen no carga');
+        $this->assertTrue($verdict['allowed']);
+
+        $new = supportrequest::create_draft(
+            $this->course->id,
+            0,
+            $this->user->id,
+            (int)$this->conversation->id,
+            'Otra incidencia distinta',
+            'tecnico'
+        );
+        $this->assertSame((int)$new->id, (int)supportrequest::pending_draft((int)$this->conversation->id)->id);
+        $this->assertSame(
+            supportrequest::STATUS_EXPIRED,
+            $GLOBALS['DB']->get_field('block_openaiagent_supportreq', 'status', ['id' => $old->id])
+        );
+        // Replacing a card is not a refusal: it must not silence later offers.
+        $this->assertSame(0, supportrequest::last_refusal_time((int)$this->conversation->id));
+    }
+
+    /**
+     * Asking for the request and asking how to reach support are told apart.
+     *
+     * @dataProvider human_request_provider
+     * @param string $message Participant message.
+     * @param string $expected Expected kind.
+     */
+    public function test_human_request_kind(string $message, string $expected): void {
+        $this->assertSame($expected, support_gate::human_request_kind($message));
+    }
+
+    /**
+     * Messages and the kind of request each one is.
+     *
+     * @return array
+     */
+    public static function human_request_provider(): array {
+        return [
+            ['quiero hablar con una persona', support_gate::HUMAN_REQUEST],
+            ['Necesito contactar con soporte, no puedo entrar', support_gate::HUMAN_REQUEST],
+            ['¿Puedo hablar con alguien del equipo?', support_gate::HUMAN_REQUEST],
+            ['envía tú la solicitud', support_gate::HUMAN_REQUEST],
+            ['abrir una incidencia', support_gate::HUMAN_REQUEST],
+            ['soporte técnico', support_gate::HUMAN_REQUEST],
+            ['I want to speak to someone from support', support_gate::HUMAN_REQUEST],
+            ['¿Cómo puedo contactar con soporte técnico?', support_gate::HUMAN_HOWTO],
+            ['¿Dónde puedo contactar con soporte?', support_gate::HUMAN_HOWTO],
+            ['¿Qué correo tiene soporte para contactar?', support_gate::HUMAN_HOWTO],
+            ['Quiero saber cómo contactar con soporte', support_gate::HUMAN_HOWTO],
+            ['How do I contact support?', support_gate::HUMAN_HOWTO],
+            ['Como posso falar com o suporte?', support_gate::HUMAN_HOWTO],
+            ['¿Cuándo es el examen final?', ''],
+        ];
+    }
+
+    /**
+     * Asking how to contact support does not open the gate by itself.
+     */
+    public function test_asking_how_does_not_open_the_gate(): void {
+        $verdict = $this->gate('¿Cómo puedo contactar con soporte técnico?');
 
         $this->assertFalse($verdict['allowed']);
-        $this->assertSame(support_gate::DENIED_PENDING, $verdict['reason']);
+        $this->assertSame(support_gate::DENIED_NOTRIGGER, $verdict['reason']);
     }
 
     /**
@@ -574,6 +649,7 @@ final class support_gate_test extends \advanced_testcase {
         $draft = $this->make_request(supportrequest::STATUS_DRAFT);
         supportrequest::set_status((int)$draft->id, supportrequest::STATUS_CANCELLED);
 
+        $this->assistant_said('De acuerdo, no lo envío.');
         $verdict = $this->gate('me lo he pensado mejor, quiero hablar con una persona');
 
         $this->assertTrue($verdict['allowed']);

@@ -830,6 +830,7 @@ class orchestrator {
         $toolnames = $config['tools'];
         $escalation = false;
         $trigger = '';
+        $gatereason = '';
         $support = $config['support'] ?? [];
 
         if (!empty($support['enabled'])) {
@@ -839,6 +840,7 @@ class orchestrator {
             $toolnames[] = 'moodle.support_request_status';
 
             $gate = support_gate::evaluate($config, $conversation, $message, $userid, $courseid);
+            $gatereason = (string)$gate['reason'];
             if ($gate['allowed']) {
                 $toolnames[] = 'moodle.support_request_draft';
                 $escalation = true;
@@ -869,8 +871,13 @@ class orchestrator {
             $conversation,
             $message,
             $toolnames,
-            $escalation
+            $escalation,
+            $gatereason
         );
+
+        // The draft waiting before the model runs, so a draft the model makes
+        // this turn can be told apart from an older card that is still open.
+        $draftbefore = supportrequest::pending_draft((int)$conversation->id);
 
         $result = $this->execute_agent(
             $agent,
@@ -885,30 +892,27 @@ class orchestrator {
         );
 
         // Whether the reply just written points the participant at support. Used
-        // only to reconcile the wording with a card that the OPEN gate produced.
+        // only to reconcile the wording with a card the server prepared.
         //
-        // It deliberately no longer opens the gate by itself. Inferring "this
-        // person is stuck" from the prose was done with a keyword regex, and the
-        // regex cannot tell a dead end from a precaution: an answer that resolved
-        // the question and closed with "if the field will not save, contact
-        // support" got a card bolted underneath it. Measured on a course run,
-        // three of every four cards were produced this way, none of them needed.
-        // The signal is not lost, only delayed by one turn: if the participant
-        // replies at all after being sent to support, TRIGGER_RECOMMENDED opens
-        // the gate on the next turn, which is also when their insistence has
-        // actually confirmed they are stuck.
+        // It never creates a card by itself. Inferring "this person is stuck"
+        // from the prose cannot tell a dead end from a precaution: an answer
+        // that resolved the question and closed with "if the field will not
+        // save, contact support" got a card bolted underneath it. The signal is
+        // only delayed: on the next turn TRIGGER_RECOMMENDED opens the gate, and
+        // the assistant, holding the tool, offers it and asks.
         $recommended = !empty($support['enabled'])
             && support_gate::recommends_support((string)($result['reply'] ?? ''));
 
         if ($escalation) {
-            $prepared = $this->ensure_support_offer(
+            $draftnow = supportrequest::pending_draft((int)$conversation->id);
+            $modeldrafted = $draftnow !== null && ($draftbefore === null || (int)$draftnow->id !== (int)$draftbefore->id);
+            $prepared = !$modeldrafted && $this->ensure_support_offer(
                 $config,
                 $conversation,
                 $message,
                 $userid,
                 $courseid,
-                $trigger,
-                $recommended
+                $trigger
             );
 
             // The model pointed at the support form and the server put a card
@@ -977,18 +981,15 @@ class orchestrator {
     }
 
     /**
-     * Make sure a participant who needs the offer actually gets it.
+     * Prepare the card when the participant asked for it and the model did not.
      *
-     * The gate opened, so the model was given the drafting tool. If it chose not
-     * to use it, the server prepares the draft itself. Without this, whether a
-     * participant is offered help depends on the model's mood, which is exactly
-     * the kind of thing the rest of this plugin refuses to leave to chance.
-     *
-     * Restricted to the cases where the need is unambiguous: the participant
-     * asked for a person, the assistant has already fallen back, or the reply
-     * just written tells them to contact support. On the weaker signals the
-     * model's judgement is left to stand, so an unwanted card never appears on a
-     * conversation that is merely repetitive.
+     * Only for the two signals that come from the participant: they asked for
+     * a person or for the request to be sent, or they accepted an offer the
+     * assistant made. Everything else -- a fallback, a failed tool, a repeated
+     * question, a reply that sends them to support -- opens the gate and hands
+     * the model the tool, and the model offers and asks first. A card nobody
+     * asked for is an email nobody needed; drafting on those signals is what
+     * put cards under answers that had already solved the problem.
      *
      * @param array $config Effective course config.
      * @param \stdClass $conversation Conversation record.
@@ -996,7 +997,6 @@ class orchestrator {
      * @param int $userid Participant id.
      * @param int $courseid Course id.
      * @param string $trigger Trigger that opened the gate.
-     * @param bool $recommended Whether the reply just written points at support.
      * @return bool True when a draft was prepared here.
      */
     private function ensure_support_offer(
@@ -1005,24 +1005,15 @@ class orchestrator {
         string $message,
         int $userid,
         int $courseid,
-        string $trigger,
-        bool $recommended = false
+        string $trigger
     ): bool {
         $backstopped = [
             support_gate::TRIGGER_ASKED,
-            support_gate::TRIGGER_FALLBACK,
-            support_gate::TRIGGER_RECOMMENDED,
-            // An accepted offer is the least ambiguous signal of the lot, and the
-            // one where leaving it to the model costs the most: it had the tool,
-            // it was told yes, and it answered by making the same offer again.
+            // It had the tool, it was told yes, and it answered by making the
+            // same offer again: measured on a course run.
             support_gate::TRIGGER_ACCEPTED,
         ];
-        if (!$recommended && !in_array($trigger, $backstopped, true)) {
-            return false;
-        }
-
-        // The model did its job: nothing to add.
-        if (supportrequest::has_pending_draft((int)$conversation->id)) {
+        if (!in_array($trigger, $backstopped, true)) {
             return false;
         }
 
@@ -1034,6 +1025,12 @@ class orchestrator {
         }
 
         $summary = $this->summarise_incident($config, $conversation, $message);
+        // Nothing to send yet: "quiero hablar con una persona" and no problem.
+        // The assistant asks what is wrong, and the next message carries the
+        // request over (support_gate, D1b).
+        if ($summary === '') {
+            return false;
+        }
 
         // Same rule as the tool takes: an identical request already on its way
         // is not offered a second time. Here it simply means no card, because
@@ -1065,13 +1062,14 @@ class orchestrator {
      * Write the incident summary for a server-prepared draft.
      *
      * One small model call with a fixed instruction, no tools and no personal
-     * data. If it fails or comes back empty the participant's own words are
-     * used: a plainer summary is a far better outcome than no offer at all.
+     * data. If the call fails the participant's own words are used: a plainer
+     * summary is a far better outcome than no offer at all. If the model finds
+     * no problem to report it says NONE, and there is no card.
      *
      * @param array $config Effective course config.
      * @param \stdClass $conversation Conversation record.
      * @param string $message Current user message.
-     * @return string
+     * @return string The summary, or '' when there is nothing to report.
      */
     private function summarise_incident(array $config, \stdClass $conversation, string $message): string {
         $agent = $config['agents']['assistant'] ?? null;
@@ -1096,7 +1094,8 @@ class orchestrator {
                         $response
                     );
 
-                    return $response->text;
+                    $text = trim($response->text);
+                    return preg_match('/^\W*none\W*$/i', $text) ? '' : $text;
                 }
             } catch (\Throwable $e) {
                 debugging(
@@ -1596,6 +1595,7 @@ class orchestrator {
      * @param string $message Current user message (for language detection; '' to skip).
      * @param array|null $toolnames Effective tool names for this turn (null = the course list).
      * @param bool $escalation Whether the support drafting tool is exposed this turn.
+     * @param string $gatereason Why the support gate decided as it did ('' = not evaluated).
      * @return string
      */
     private function compose_instructions(
@@ -1605,7 +1605,8 @@ class orchestrator {
         \stdClass $conversation,
         string $message = '',
         ?array $toolnames = null,
-        bool $escalation = false
+        bool $escalation = false,
+        string $gatereason = ''
     ): string {
         // Everything from here to the identity block below is identical for every
         // participant in the course, and that is deliberate: providers cache by
@@ -1688,7 +1689,7 @@ class orchestrator {
                 $parts[] = defaults::ASSISTANT_ACTIVITY_CONFIG_DIRECTIVE;
             }
             if (in_array('moodle.support_request_status', $effectivetools, true)) {
-                $parts[] = defaults::SUPPORT_STATUS_DIRECTIVE;
+                $parts[] = self::support_directive($gatereason, $config);
             }
             // Only on the turns where the gate actually opened. A conversation
             // that is going fine never reads these rules and never pays for
@@ -1972,6 +1973,51 @@ class orchestrator {
         return 'Context (authoritative, provided by Moodle): ' . implode('; ', $bits)
             . '. Use these directly when addressing the user or referring to the course; '
             . 'do not call a tool to look them up.';
+    }
+
+    /**
+     * What the assistant is told about support on this turn.
+     *
+     * The same text every turn, except when no request can be prepared right
+     * now. The general directive promises that one can; left in place while the
+     * gate was shut for a limit, the model tried to honour a promise it could
+     * not keep and invented the reason, down to a reference and a date.
+     *
+     * @param string $gatereason Gate reason for this turn.
+     * @param array $config Effective config.
+     * @return string
+     */
+    private static function support_directive(string $gatereason, array $config): string {
+        if (!in_array($gatereason, support_gate::HARD_DENIALS, true)) {
+            $directive = defaults::SUPPORT_STATUS_DIRECTIVE;
+            if ($gatereason === support_gate::DENIED_REFUSED) {
+                $directive .= "\n\nThe participant declined a support request a few messages ago. Do not "
+                    . 'offer one again unless they ask for it.';
+            }
+            if ($gatereason === support_gate::DENIED_NEEDDETAIL) {
+                $directive .= "\n\nThe participant wants to reach a person but has not said what the problem "
+                    . 'is. Tell them you will prepare the request for the support team, and ask them in one '
+                    . 'short question what is happening. Do not say it has been prepared yet.';
+            }
+            return $directive;
+        }
+
+        $reasons = [
+            support_gate::DENIED_QUOTA => 'they have reached today\'s limit of support requests; they can raise '
+                . 'another one tomorrow',
+            support_gate::DENIED_COOLDOWN => 'they sent a request a few minutes ago; they can raise another one '
+                . 'in a few minutes',
+            support_gate::DENIED_COURSECEILING => 'this course has reached its daily limit of support requests; '
+                . 'they can try again tomorrow',
+            support_gate::DENIED_CAPABILITY => 'support requests cannot be raised from this chat for them',
+            support_gate::DENIED_DISABLED => 'support requests are not set up for this assistant',
+        ];
+        $directive = str_replace('{reason}', $reasons[$gatereason], defaults::SUPPORT_UNAVAILABLE_DIRECTIVE);
+        $url = trim((string)($config['support']['supporturl'] ?? ''));
+        if ($url !== '') {
+            $directive .= "\nThe site's support page, which they can use instead: " . $url;
+        }
+        return $directive;
     }
 
     /**

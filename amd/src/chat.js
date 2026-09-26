@@ -415,10 +415,23 @@ define([
      */
     ChatController.prototype.renderSupportCard = function(action, payload) {
         var self = this;
+        // One card at a time. A newer draft replaces an older one on the
+        // server, so an older card still waiting here is dropped; one being
+        // answered right now (its buttons disabled) is left to finish.
+        var cards = this.messagesContainer.querySelectorAll('[data-supportdraft]');
+        Array.prototype.forEach.call(cards, function(other) {
+            var busy = other.querySelector('button:disabled');
+            if (other.getAttribute('data-supportdraft') !== String(action.id) && !busy) {
+                other.parentNode.removeChild(other);
+            }
+        });
         // Never two cards for the same draft: replies and history reloads can
-        // both deliver the same pending action.
+        // both deliver the same pending action. It moves under the latest
+        // reply instead, so it is never left out of sight above the messages.
         var existing = this.messagesContainer.querySelector('[data-supportdraft="' + action.id + '"]');
         if (existing) {
+            this.messagesContainer.appendChild(existing);
+            this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
             return;
         }
 

@@ -55,14 +55,14 @@ class support_gate {
     /** @var string The course has hit its daily ceiling. */
     public const DENIED_COURSECEILING = 'courseceiling';
 
-    /** @var string A draft from this conversation is still unanswered. */
-    public const DENIED_PENDING = 'pending';
-
     /** @var string The participant declined an offer a moment ago. */
     public const DENIED_REFUSED = 'refused';
 
     /** @var string Nothing suggests the assistant has failed the participant. */
     public const DENIED_NOTRIGGER = 'notrigger';
+
+    /** @var string They asked for a person but have not said what is wrong yet. */
+    public const DENIED_NEEDDETAIL = 'needdetail';
 
     /** @var string The participant asked to talk to a person. */
     public const TRIGGER_ASKED = 'asked_for_human';
@@ -81,6 +81,21 @@ class support_gate {
 
     /** @var string The assistant offered to prepare the request and they said yes. */
     public const TRIGGER_ACCEPTED = 'offer_accepted';
+
+    /** @var string The participant asks for a person, or for the request to be sent. */
+    public const HUMAN_REQUEST = 'request';
+
+    /** @var string The participant only asks how to reach support. */
+    public const HUMAN_HOWTO = 'howto';
+
+    /** @var string[] Denials that mean no request can be prepared right now, whatever is said. */
+    public const HARD_DENIALS = [
+        self::DENIED_DISABLED,
+        self::DENIED_CAPABILITY,
+        self::DENIED_QUOTA,
+        self::DENIED_COOLDOWN,
+        self::DENIED_COURSECEILING,
+    ];
 
     /**
      * Decide whether this turn may offer the escalation.
@@ -116,8 +131,10 @@ class support_gate {
 
         // An explicit request for a person overrides the silence that follows a
         // refusal: someone who has changed their mind and says so must not have
-        // to argue with the assistant about it.
-        $askedforhuman = self::asks_for_human($message);
+        // to argue with the assistant about it. Asking HOW to reach support is
+        // not such a request: the assistant answers it, and a card under that
+        // answer is exactly the card nobody asked for.
+        $askedforhuman = self::human_request_kind($message) === self::HUMAN_REQUEST;
 
         if (!$askedforhuman && self::recently_refused($conversationid, (int)($support['offercooldownturns'] ?? 0))) {
             return self::deny(self::DENIED_REFUSED);
@@ -126,6 +143,20 @@ class support_gate {
         $trigger = self::first_trigger($askedforhuman, $conversationid, $message, $config);
         if ($trigger === '') {
             return self::deny(self::DENIED_NOTRIGGER);
+        }
+
+        // An opening "quiero hablar con una persona" carries nothing a help
+        // desk could act on, and a card saying only that is an email that
+        // costs a reply asking what the problem is. The assistant asks instead,
+        // and the answer opens the gate (D1b in first_trigger). Later in a
+        // conversation the problem is usually already on the table, so the card
+        // follows at once there.
+        if (
+            $askedforhuman
+                && !self::states_a_problem($message)
+                && trim(conversation_repository::last_assistant_message($conversationid)) === ''
+        ) {
+            return self::deny(self::DENIED_NEEDDETAIL);
         }
 
         return [
@@ -152,15 +183,13 @@ class support_gate {
      * @param int $conversationid Conversation id.
      * @param int $userid Participant id.
      * @param int $courseid Course id.
-     * @param int $ignoredraftid Draft to disregard when looking for a pending one.
      * @return string Empty when everything holds, otherwise the reason.
      */
     public static function hard_preconditions(
         array $config,
         int $conversationid,
         int $userid,
-        int $courseid,
-        int $ignoredraftid = 0
+        int $courseid
     ): string {
         $support = $config['support'] ?? [];
 
@@ -189,9 +218,11 @@ class support_gate {
             return self::DENIED_CAPABILITY;
         }
 
-        if (supportrequest::has_pending_draft($conversationid, $ignoredraftid)) {
-            return self::DENIED_PENDING;
-        }
+        // An unanswered card does not block anything. It used to, for the 24
+        // hours a draft lives, and a card the participant ignored -- often one
+        // they never asked for -- left them unable to reach support at all for
+        // the rest of the day. A new draft now replaces the old one
+        // (supportrequest::create_draft), so there is never more than one card.
 
         $maxperuser = (int)($support['maxperuserday'] ?? 0);
         if ($maxperuser > 0 && supportrequest::count_user_today($courseid, $userid) >= $maxperuser) {
@@ -293,6 +324,14 @@ class support_gate {
             return '';
         }
 
+        // D1b. They asked for a person last turn and no request came of it:
+        // "quiero hablar con una persona" carries no problem to send, so the
+        // assistant asked what was wrong. This message is the answer, and it is
+        // still the same request.
+        if (self::unanswered_request($conversationid)) {
+            return self::TRIGGER_ASKED;
+        }
+
         // D2b. The assistant offered to prepare the request and they accepted.
         // The mirror of D5 below: that one catches "I told you to go to support",
         // this one catches "I told you I could do it for you". Without it the
@@ -340,20 +379,39 @@ class support_gate {
     }
 
     /**
-     * Whether the participant asked to be put through to a person.
+     * Whether the message is about reaching a person, of either kind.
+     *
+     * Used for routing: both kinds belong to the assistant, which is the route
+     * that knows about support.
+     *
+     * @param string $message User message.
+     * @return bool
+     */
+    public static function asks_for_human(string $message): bool {
+        return self::human_request_kind($message) !== '';
+    }
+
+    /**
+     * What the participant is asking about reaching a person, if anything.
      *
      * Deterministic on purpose. This is the one path that has to work on the
      * first message, before the assistant has said anything, so it cannot depend
      * on the model's judgement. Covers Spanish, English and Portuguese, the
      * three languages the rest of the plugin's detectors handle.
      *
+     * Two kinds, because they need opposite answers. "Quiero hablar con
+     * soporte" or "envía tú la solicitud" ask for the request: the card
+     * follows. "¿Cómo contacto con soporte?" asks for information: the
+     * assistant answers it and may offer to prepare the request, but a card
+     * appearing under that answer was the commonest unwanted card measured.
+     *
      * @param string $message User message.
-     * @return bool
+     * @return string self::HUMAN_REQUEST, self::HUMAN_HOWTO or '' when neither.
      */
-    public static function asks_for_human(string $message): bool {
+    public static function human_request_kind(string $message): string {
         $text = \core_text::strtolower(trim($message));
         if ($text === '') {
-            return false;
+            return '';
         }
 
         // Naming a person or a team to be reached.
@@ -401,21 +459,37 @@ class support_gate {
             . '(?:lo|la|selo|sela)?\s*(?:tu|tú)?';
 
         if (preg_match('/(?:' . $delegate . ')/u', $text)) {
-            return true;
+            return self::HUMAN_REQUEST;
         }
 
         if (preg_match('/(?:' . $selfcontained . ')/u', $text)) {
-            return true;
+            return self::HUMAN_REQUEST;
         }
 
-        if (preg_match('/(?:' . $reach . ').{0,40}(?:' . $who . ')/u', $text)) {
-            return true;
-        }
-
-        // The reverse order, as in "con una persona quiero hablar" or the very
-        // common bare "soporte tecnico" / "atencion al cliente".
-        if (preg_match('/(?:' . $who . ').{0,40}(?:' . $reach . ')/u', $text)) {
-            return true;
+        // Reaching somebody, in either order ("hablar con soporte", "con una
+        // persona quiero hablar"). Phrased as a question about the way to do it
+        // it is a request for information, unless the message also says they
+        // want it done: "¿cómo hablo con alguien? necesito que lo vean ya".
+        if (
+            preg_match('/(?:' . $reach . ').{0,40}(?:' . $who . ')/u', $text)
+                || preg_match('/(?:' . $who . ').{0,40}(?:' . $reach . ')/u', $text)
+        ) {
+            $howto = '/(*UCP)(?:^|[^\\w])(?:c[oó]mo|d[oó]nde|a qui[eé]n|con qui[eé]n'
+                . '|qu[eé] (?:correo|email|mail|tel[eé]fono|n[uú]mero|horario|direcci[oó]n|canal|enlace|v[ií]a)'
+                . '|cu[aá]l (?:es )?(?:el|la) (?:correo|email|tel[eé]fono|forma|v[ií]a|enlace|direcci[oó]n)'
+                . '|hay (?:alg[uú]n|alguna|un|una)|existe (?:alg[uú]n|un|una)'
+                . '|how|where|who (?:do|should|can) i|what(?:\'s| is) the|is there'
+                . '|onde|qual (?:é )?o|como (?:posso|fa[cç]o|entro))(?:[^\\w]|$)/u';
+            $wants = '/(*UCP)(?:^|[^\\w])(?:quiero|quisiera|necesito|me gustar[ií]a|deseo|p[aá]same|p[oó]nme'
+                . '|want|need|would like|i\'d like|put me through'
+                . '|quero|preciso|gostaria)(?:[^\\w]|$)/u';
+            // Wanting to know ("quiero saber cómo...") asks for the information.
+            $knowing = '/(*UCP)(?:quiero|quisiera|necesito|me gustar[ií]a|want to|would like to|need to'
+                . '|quero|preciso|gostaria de) (?:saber|know|conocer)/u';
+            if (preg_match($howto, $text) && (!preg_match($wants, $text) || preg_match($knowing, $text))) {
+                return self::HUMAN_HOWTO;
+            }
+            return self::HUMAN_REQUEST;
         }
 
         // Short, unambiguous set phrases that carry no verb at all.
@@ -427,7 +501,67 @@ class support_gate {
             . '|suporte(?:\s+tecnico|\s+técnico)?'
             . ')[\s\.\!\?]*$/u';
 
-        return (bool)preg_match($phrases, $text);
+        return preg_match($phrases, $text) ? self::HUMAN_REQUEST : '';
+    }
+
+    /**
+     * Whether a message says what is wrong, beyond asking for help.
+     *
+     * Deliberately generous: a long message is taken to describe something, and
+     * so is any of the usual ways of saying something fails. Only the bare
+     * request -- "quiero hablar con una persona", "soporte técnico" -- is not.
+     *
+     * @param string $message Participant message.
+     * @return bool
+     */
+    public static function states_a_problem(string $message): bool {
+        $text = \core_text::strtolower(trim($message));
+        if (count(preg_split('/\s+/u', $text, -1, PREG_SPLIT_NO_EMPTY) ?: []) > 10) {
+            return true;
+        }
+        return (bool)preg_match(
+            '/(*UCP)\b(?:no (?:puedo|me deja|me aparece|aparece|funciona|carga|consigo|encuentro|veo|abre|entra)'
+                . '|error|falla|fallo|problema|bloquead[oa]|caducad[oa]|plazo|pr[oó]rroga|nota|calificaci[oó]n'
+                . '|acceso|contraseña|certificado|matr[ií]cula|tarea|cuestionario|examen|entrega'
+                . '|can\'t|cannot|doesn\'t|does not|won\'t|not working|problem|issue|locked|deadline|grade'
+                . '|password|access|certificate|quiz|assignment'
+                . '|n[aã]o (?:consigo|posso|funciona|abre|aparece)|erro|prazo|senha|acesso)\b/u',
+            $text
+        );
+    }
+
+    /**
+     * Whether the previous message asked for a person and nothing came of it yet.
+     *
+     * Reads the stored messages, so on profiles that do not keep message text
+     * it is simply false and the participant asks again.
+     *
+     * @param int $conversationid Conversation id.
+     * @return bool
+     */
+    private static function unanswered_request(int $conversationid): bool {
+        global $DB;
+
+        // The current message is already stored, so the previous one is second.
+        $rows = array_values($DB->get_records(
+            'block_openaiagent_messages',
+            ['conversationid' => $conversationid, 'role' => 'user'],
+            'id DESC',
+            'id, content, timecreated',
+            0,
+            2
+        ));
+        if (count($rows) < 2 || self::human_request_kind((string)$rows[1]->content) !== self::HUMAN_REQUEST) {
+            return false;
+        }
+
+        // Any request since then, whatever became of it (a card, a cancel, a
+        // send), means the ask was dealt with.
+        return !$DB->record_exists_select(
+            'block_openaiagent_supportreq',
+            'conversationid = :cid AND timecreated >= :since',
+            ['cid' => $conversationid, 'since' => (int)$rows[1]->timecreated]
+        );
     }
 
     /**
@@ -524,9 +658,11 @@ class support_gate {
         }
 
         // The offer, in the words the escalation directive produces.
-        $offered = '/(puedo|podr[ií]a) (preparar|redactar|dejar lista|enviar)'
-            . '|prepar(o|ar[eé]) (la|una) solicitud'
-            . '|i can (prepare|draft|raise)|posso preparar|preparar a solicita/u';
+        $offered = '/(puedo|podr[ií]a) (preparar|redactar|dejar lista|enviar|tramitar)'
+            . '|prepar(o|ar[eé]) (la|una|tu) solicitud'
+            . '|(quieres|deseas|quiere|desea) que (te |le )?(la |lo )?(prepare|redacte|env[ií]e|tramite|reporte|pase)'
+            . '|i can (prepare|draft|raise|send)|(want|like) me to (prepare|draft|raise|send|report)'
+            . '|posso (preparar|enviar)|quer que eu (prepare|envie)|preparar a solicita/u';
         if (!preg_match($offered, $reply)) {
             return false;
         }

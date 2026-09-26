@@ -179,6 +179,18 @@ class supportrequest {
         $now = time();
         $summary = self::clean_summary($summary);
 
+        // One card per conversation. A newer draft replaces one still waiting,
+        // which is retired exactly as an unanswered draft is at the end of its
+        // life, so it counts neither as a refusal nor against any allowance.
+        if ($conversationid > 0) {
+            $DB->execute(
+                "UPDATE {" . self::TABLE . "}
+                    SET status = :expired, token = '', timemodified = :now
+                  WHERE conversationid = :cid AND status = :draft",
+                ['expired' => self::STATUS_EXPIRED, 'now' => $now, 'cid' => $conversationid, 'draft' => self::STATUS_DRAFT]
+            );
+        }
+
         $record = new \stdClass();
         $record->courseid = $courseid;
         $record->blockinstanceid = $blockinstanceid;
@@ -359,35 +371,6 @@ class supportrequest {
         );
 
         return array_map('intval', array_keys($rows));
-    }
-
-    /**
-     * Whether the conversation already has a draft waiting to be answered.
-     *
-     * One draft may be excluded, which is what the confirmation path needs: the
-     * draft being confirmed is itself pending, and without the exclusion this
-     * check would report "there is already a draft" about the very draft the
-     * participant just clicked.
-     *
-     * @param int $conversationid Conversation id.
-     * @param int $ignoreid Draft to disregard (0 = none).
-     * @return bool
-     */
-    public static function has_pending_draft(int $conversationid, int $ignoreid = 0): bool {
-        global $DB;
-
-        if ($conversationid <= 0) {
-            return false;
-        }
-
-        $where = 'conversationid = :cid AND status = :status AND tokenexpiry > :now';
-        $params = ['cid' => $conversationid, 'status' => self::STATUS_DRAFT, 'now' => time()];
-        if ($ignoreid > 0) {
-            $where .= ' AND id <> :ignoreid';
-            $params['ignoreid'] = $ignoreid;
-        }
-
-        return $DB->record_exists_select(self::TABLE, $where, $params);
     }
 
     /**

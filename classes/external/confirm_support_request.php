@@ -166,16 +166,11 @@ class confirm_support_request extends external_api {
             );
         }
 
-        // This draft is excluded from the "is one already pending?" check: it is
-        // the pending one. Without that exclusion the check short-circuits on it
-        // and the ceilings below are never reached, which would make this whole
-        // re-validation dead code.
         $blocked = support_gate::hard_preconditions(
             $config,
             (int)$draft->conversationid,
             (int)$USER->id,
-            (int)$draft->courseid,
-            (int)$draft->id
+            (int)$draft->courseid
         );
         if ($blocked !== '') {
             supportrequest::mark_cancelled((int)$draft->id);

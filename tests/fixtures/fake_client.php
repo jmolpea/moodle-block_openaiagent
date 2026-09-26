@@ -41,6 +41,9 @@ class fake_client extends client_base {
     /** @var string Text the agent call should return. */
     public string $agenttext = 'Here is a helpful answer.';
 
+    /** @var string|null Text the support summariser should return (null = the agent text). */
+    public ?string $summarytext = null;
+
     /** @var bool When true, agent (non-router) calls report failure. */
     public bool $failagent = false;
 
@@ -108,6 +111,13 @@ class fake_client extends client_base {
 
         if ($request->jsonmode) {
             return response::success('resp_router', $this->routerjson, [], 5, 5);
+        }
+
+        if (
+            $this->summarytext !== null
+                && $request->instructions === \block_openaiagent\local\defaults::SUPPORT_SUMMARY_PROMPT
+        ) {
+            return response::success('resp_summary', $this->summarytext, [], 10, 20);
         }
 
         if ($this->failagent) {
