@@ -248,8 +248,7 @@ class block_openaiagent extends block_base {
         if ((int)get_config('block_openaiagent', 'enabled') !== 1) {
             return false;
         }
-        $apikey = get_config('block_openaiagent', 'apikey');
-        return !empty($apikey);
+        return \block_openaiagent\ai\factory::is_configured();
     }
 
     /**
@@ -356,10 +355,8 @@ class block_openaiagent extends block_base {
      * @return array Applicable formats.
      */
     public function applicable_formats() {
-        // Outside a real course (site home, category pages, dashboard) the block
-        // runs against the site course: the tutor/FAQ side works normally, while
-        // MCP course tools should be disabled in that course config since there
-        // is no course data to query.
+        // Outside a real course (site home, category pages) the block is a
+        // platform assistant, with its own tools; see scope.
         //
         // Note: applicable_formats keys are matched against the page *pagetype*.
         // The category listing page (/course/index.php?categoryid=N) has pagetype
@@ -375,7 +372,11 @@ class block_openaiagent extends block_base {
             // its category can answer "how do I enrol in this course?" right there.
             'enrol-index' => true,
             'mod' => true,
-            'my' => true,
+            // Not addable to the Dashboard: Moodle copies Dashboard blocks per
+            // user with new ids, so it would only ever show the notice that it
+            // is not supported there. A block added before is still drawn, with
+            // that notice for whoever can move it.
+            'my' => false,
         ];
     }
 

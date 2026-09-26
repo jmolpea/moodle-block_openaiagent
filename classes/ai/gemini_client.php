@@ -176,14 +176,17 @@ class gemini_client extends client_base {
         }
 
         // The cachedContentTokenCount field is already part of promptTokenCount,
-        // so it is passed through as the cached subset.
+        // so it is passed through as the cached subset. Thinking is reported
+        // apart from the answer (thoughtsTokenCount) but billed as output, so it
+        // is added in: without it the dashboard undercounted every thinking
+        // model's output, and its cost with it.
         $usage = is_array($decoded['usageMetadata'] ?? null) ? $decoded['usageMetadata'] : [];
         return response::success(
             (string)($decoded['responseId'] ?? ''),
             trim(implode("\n", $parts)),
             $toolcalls,
             (int)($usage['promptTokenCount'] ?? 0),
-            (int)($usage['candidatesTokenCount'] ?? 0),
+            (int)($usage['candidatesTokenCount'] ?? 0) + (int)($usage['thoughtsTokenCount'] ?? 0),
             (int)($usage['totalTokenCount'] ?? 0),
             (int)($usage['cachedContentTokenCount'] ?? 0)
         );

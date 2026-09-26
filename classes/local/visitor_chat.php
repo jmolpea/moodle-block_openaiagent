@@ -124,7 +124,7 @@ final class visitor_chat {
     public static function available(scope $scope): bool {
         return block_settings::open_to_visitors($scope)
             && (int)get_config('block_openaiagent', 'enabled') === 1
-            && !empty(get_config('block_openaiagent', 'apikey'))
+            && \block_openaiagent\ai\factory::is_configured()
             && \block_openaiagent\license\validator::is_valid()
             && course_config::is_enabled($scope->courseid, $scope->blockinstanceid)
             && ($scope->pagecourseid <= 0 || course_config::core_ai_allows($scope->pagecourseid));

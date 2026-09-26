@@ -79,6 +79,19 @@ class factory {
     }
 
     /**
+     * Whether the configured provider has its API key.
+     *
+     * Every provider keeps its key under its own setting ('apikey' is only
+     * OpenAI's), so checking 'apikey' alone reported a site running on
+     * Anthropic, Gemini or DeepSeek as not configured.
+     *
+     * @return bool
+     */
+    public static function is_configured(): bool {
+        return self::client()->is_configured();
+    }
+
+    /**
      * Resolve a configured model id against a client, guarding against
      * model ids left over from another provider.
      *

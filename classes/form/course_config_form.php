@@ -309,8 +309,8 @@ class course_config_form extends \moodleform {
         // The destination is the one field a course cannot freely set. Everything
         // else here is wording; this one decides where a participant's name,
         // address and transcript are sent, so it is gated by its own capability.
-        // Freezing is only the visible half: save_course_config repeats the check,
-        // because the external function can be called without this form.
+        // Freezing is only the visible half: courseconfig.php writes these fields
+        // only for someone who holds the capability, whatever was submitted.
         $mform->addElement('text', 'supportemailto', get_string('cc_supportemailto', 'block_openaiagent'), ['size' => 60]);
         $mform->setType('supportemailto', PARAM_RAW_TRIMMED);
 
@@ -479,9 +479,8 @@ class course_config_form extends \moodleform {
             }
         }
 
-        // Support addresses are checked here so a typo is caught before the page
-        // reloads, and again in save_course_config, which is the check that
-        // actually protects anything.
+        // Support addresses are checked here, on the server, before anything is
+        // saved: malformed addresses and domains outside the allowed list.
         foreach (['supportemailto', 'supportemailcc'] as $field) {
             $raw = trim((string)($data[$field] ?? ''));
             if ($raw === '') {

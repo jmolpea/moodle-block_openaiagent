@@ -100,6 +100,14 @@ class send_message extends external_api {
         self::validate_context($context);
         require_capability('block/openaiagent:use', $context);
 
+        // A guest on a category or site assistant is a visitor. Visitors are
+        // limited by visitor_guard, which only the public endpoint applies, and
+        // the orchestrator skips the per-user limiter for them; letting a guest
+        // in here would reach the provider with neither.
+        if ($scope->is_platform() && $scope->is_visitor()) {
+            throw new \required_capability_exception($context, 'block/openaiagent:use', 'nopermissions', '');
+        }
+
         $orchestrator = new orchestrator();
         $result = $orchestrator->handle_message(
             $params['courseid'],

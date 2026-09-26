@@ -434,6 +434,55 @@ final class analytics_test extends \advanced_testcase {
     }
 
     /**
+     * Every model the settings offer has a built-in price, whatever the provider.
+     *
+     * Only OpenAI models used to have one, so a site on Anthropic, Gemini or
+     * DeepSeek saw its whole bill as "no price" and an estimated cost of zero.
+     */
+    public function test_every_offered_model_has_a_price(): void {
+        global $CFG;
+        $this->resetAfterTest();
+
+        $settings = file_get_contents($CFG->dirroot . '/blocks/openaiagent/settings.php');
+        $this->assertSame(1, preg_match('/\$providermodels = \[(.*?)\n    \];/s', $settings, $m));
+        preg_match_all("/'([a-z0-9.\-]+)'/", $m[1], $ids);
+        $models = array_diff($ids[1], ['openai', 'anthropic', 'gemini', 'deepseek']);
+        $this->assertGreaterThan(20, count($models));
+
+        $prices = analytics::get_price_map();
+        foreach ($models as $model) {
+            $this->assertNotNull(analytics::price_for($model, $prices), "No price for {$model}");
+        }
+    }
+
+    /**
+     * A dated snapshot id costs what its base model costs, and comments are skipped.
+     */
+    public function test_price_for_accepts_dated_ids_and_comments(): void {
+        $this->resetAfterTest();
+        set_config('analytics_prices', "# model|input|output\nclaude-haiku-4-5|9|9|9", 'block_openaiagent');
+
+        $prices = analytics::get_price_map();
+        $this->assertArrayNotHasKey('# model', $prices);
+        $this->assertSame([9.0, 9.0, 9.0], analytics::price_for('claude-haiku-4-5-20251001', $prices));
+        $this->assertSame([0.4, 1.6, 0.1], analytics::price_for('gpt-4.1-mini-2025-04-14', $prices));
+        $this->assertSame([0.3, 2.5, 0.03], analytics::price_for('models/gemini-2.5-flash', $prices));
+        $this->assertNull(analytics::price_for('unknown-model', $prices));
+    }
+
+    /**
+     * An announced price change applies from its date on, and not before.
+     */
+    public function test_price_changes_apply_from_their_date(): void {
+        $this->resetAfterTest();
+
+        $before = analytics::get_price_map(strtotime('2026-12-31 12:00:00 UTC'));
+        $after = analytics::get_price_map(strtotime('2027-01-01 12:00:00 UTC'));
+        $this->assertSame([0.75, 3.75, 0.075], $before['gemini-3.8-flash']);
+        $this->assertSame([1.5, 7.5, 0.15], $after['gemini-3.8-flash']);
+    }
+
+    /**
      * Rebuilding a day is idempotent (no double counting across runs).
      */
     public function test_rebuild_is_idempotent(): void {

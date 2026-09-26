@@ -474,39 +474,6 @@ class supportrequest {
     }
 
     /**
-     * Whether this conversation already produced a request very recently.
-     *
-     * Stops a conversation from generating a second ticket about the same
-     * session moments after the first one went out. The window is short on
-     * purpose: two genuinely different problems raised in one conversation both
-     * deserve to reach the support team, and the guards that matter -- the daily
-     * allowance, the cooldown and the deduplication by content -- are doing that
-     * work already. A long lockout here only produced a participant being told
-     * "you already have one" with no idea when that would stop being true.
-     *
-     * @param int $conversationid Conversation id.
-     * @param int $seconds Window to look back over.
-     * @return bool
-     */
-    public static function has_recent_request(int $conversationid, int $seconds): bool {
-        global $DB;
-
-        if ($conversationid <= 0 || $seconds <= 0) {
-            return false;
-        }
-
-        [$insql, $params] = $DB->get_in_or_equal(self::COUNTED_STATUSES, SQL_PARAMS_NAMED, 'st');
-        $params['cid'] = $conversationid;
-        $params['since'] = time() - $seconds;
-
-        return $DB->record_exists_select(
-            self::TABLE,
-            "conversationid = :cid AND status $insql AND timecreated >= :since",
-            $params
-        );
-    }
-
-    /**
      * An earlier request from this participant saying the same thing.
      *
      * Deduplication works on the meaning of the request rather than on the

@@ -24,6 +24,7 @@
 
 namespace block_openaiagent\mcp\platform\tools;
 
+use block_openaiagent\local\block_settings;
 use block_openaiagent\local\scope;
 use block_openaiagent\mcp\platform\base_tool;
 use block_openaiagent\mcp\platform\catalog;
@@ -93,6 +94,15 @@ class get_enrolment_options extends base_tool {
         }
         $course = catalog::discoverable($courseid, $scope->userid);
         if (!$course) {
+            return ['error' => 'course_not_found'];
+        }
+        // Same boundary as the catalogue search: a category assistant limited
+        // to its category does not describe courses outside it.
+        if (
+            $scope->type === scope::CATEGORY
+                && block_settings::catalog_limited_to_category($scope->blockinstanceid)
+                && !catalog::in_category_tree($course, $scope->categoryid)
+        ) {
             return ['error' => 'course_not_found'];
         }
 

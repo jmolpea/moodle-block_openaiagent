@@ -79,25 +79,23 @@ function block_openaiagent_extend_navigation_course($navigation, $course, $conte
     // Each block instance of this plugin in the course is an independently
     // configured assistant, so expose one configuration link per instance. This
     // lets a course host, say, a technical-support bot and a subject-matter tutor
-    // side by side, each with its own prompts, tools and knowledge base.
-    $instances = $DB->get_records('block_instances', [
-        'blockname' => 'openaiagent',
-        'parentcontextid' => $context->id,
-    ], 'id ASC');
-
+    // side by side, each with its own prompts, tools and knowledge base. Blocks
+    // placed on an activity page belong to the course too, so they are listed.
+    //
+    // A course without the block gets no link at all. It used to get one to a
+    // course-wide profile (block id 0) that no block ever reads -- every block
+    // uses its own profile -- so whatever a teacher saved there did nothing.
+    $pathlike = $DB->sql_like('ctx.path', ':path');
+    $instances = $DB->get_records_sql(
+        "SELECT bi.*
+           FROM {block_instances} bi
+           JOIN {context} ctx ON ctx.id = bi.parentcontextid
+          WHERE bi.blockname = :blockname
+            AND (ctx.id = :contextid OR {$pathlike})
+       ORDER BY bi.id ASC",
+        ['blockname' => 'openaiagent', 'contextid' => $context->id, 'path' => $context->path . '/%']
+    );
     if (empty($instances)) {
-        // No block instance lives directly in the course context (it may sit on a
-        // module or dashboard page). Fall back to the single course-wide profile so
-        // the configuration stays reachable from the course navigation.
-        $url = new moodle_url('/blocks/openaiagent/courseconfig.php', ['courseid' => $course->id, 'bid' => 0]);
-        $navigation->add_node(navigation_node::create(
-            get_string('courseconfig', 'block_openaiagent'),
-            $url,
-            navigation_node::TYPE_SETTING,
-            null,
-            'block_openaiagent_courseconfig',
-            new pix_icon('i/settings', '')
-        ));
         return;
     }
 
@@ -110,8 +108,8 @@ function block_openaiagent_extend_navigation_course($navigation, $course, $conte
 /**
  * Add the assistant configuration link to the site home (frontpage) navigation.
  *
- * This covers the site-course configuration used when the block is placed on
- * site-level pages (site home, category pages, dashboard).
+ * One link per assistant placed on the site home. Category assistants are
+ * listed in their category's settings instead.
  *
  * @param navigation_node $navigation The frontpage navigation node.
  * @param stdClass $course The site course.

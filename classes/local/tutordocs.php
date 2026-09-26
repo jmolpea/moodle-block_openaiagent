@@ -103,22 +103,6 @@ class tutordocs {
     }
 
     /**
-     * Whether the profile has any knowledge-base document uploaded.
-     *
-     * @param int $courseid Course id.
-     * @param int $blockinstanceid Owning block instance id (0 = course-wide default).
-     * @return bool
-     */
-    public static function has_documents(int $courseid, int $blockinstanceid = 0): bool {
-        foreach (self::areas() as $area) {
-            if (!empty(self::files($courseid, $area, $blockinstanceid))) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
      * Synchronize the chunk index with the uploaded documents of a course.
      *
      * Extracts text for new files, (re)creates their chunks, removes chunks of

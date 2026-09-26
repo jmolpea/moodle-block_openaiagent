@@ -28,13 +28,14 @@ Certificados e insignias en el asistente de categoría y de portada.
   - insignias de Open Badge Factory (`local_obf`), cuando está conectado a una
     cuenta.
 
-  Cada fuente se lee con la API de su propio plugin, nunca con consultas a sus
-  tablas, y solo se usa si el plugin está instalado.
+  Salvo `mod_certificate`, cada fuente se lee con la API de su propio plugin,
+  nunca con consultas a sus tablas, y solo se usa si el plugin está instalado.
 - **Enlaces que funcionan sin acceso al curso.** De cada credencial se da el
   nombre, el curso, la fecha, la caducidad, el código de verificación y el enlace
   para descargarla o verla. Los enlaces siguen funcionando aunque el curso esté
   oculto o la matrícula haya caducado, que es justo cuando alguien busca un
-  certificado antiguo.
+  certificado antiguo. La excepción es `mod_certificate`, cuya descarga exige
+  acceso al curso.
 - **Sin duplicados.** Una insignia que llega por dos fuentes (emitida en Moodle y
   en Open Badge Factory) aparece una sola vez.
 - **Instrucciones:** el asistente entrega el enlace y avisa si la credencial ha
@@ -44,6 +45,50 @@ Certificados e insignias en el asistente de categoría y de portada.
 - **Privacidad:** se declaran los datos de las credenciales que llegan al
   proveedor y la consulta que `local_obf` hace a Open Badge Factory con el correo
   del participante.
+
+### Corregido (auditoría previa a la publicación)
+
+- **El coste del panel de analítica solo existía para OpenAI.** Los modelos de
+  Anthropic, Gemini y DeepSeek no tenían precio de serie: aparecían con «—» y el
+  coste estimado del sitio salía en cero. Ahora todos los modelos que ofrecen los
+  ajustes, de los cuatro proveedores, traen su precio, y también los retirados,
+  para que su historial conserve el coste. Cada día se valora con el precio que
+  tenía ese día (`gemini-3.8-flash` sube el 01-01-2027). Un id con fecha
+  (`claude-haiku-4-5-20251001`) cuesta lo mismo que su modelo base, y en el ajuste
+  de precios las líneas que empiezan por `#` se ignoran.
+- **Gemini no contaba los tokens de razonamiento.** Gemini los informa aparte
+  (`thoughtsTokenCount`), pero los cobra como salida. Ahora se suman, y el
+  panel deja de infravalorar la salida y el coste de los modelos que razonan.
+- **«Asistente no configurado» en sitios sin OpenAI.** El bloque, su formulario
+  y el acceso de visitantes comprobaban solo la clave de OpenAI. Un sitio que
+  usaba solo Anthropic, Gemini o DeepSeek veía el asistente como no configurado.
+  Ahora se comprueba la clave del proveedor elegido.
+- **Enlace de configuración inútil en todos los cursos.** Los cursos sin el
+  bloque mostraban «Configuración del asistente», que abría un perfil de curso
+  (bloque 0) que ningún bloque lee. Ahora solo aparece si hay un bloque, y
+  también se listan los bloques puestos en la página de una actividad, cuya
+  configuración antes no tenía enlace.
+- **El bloque ya no se puede añadir al Área personal**, donde solo mostraba el
+  aviso de que allí no funciona. Los bloques añadidos antes siguen mostrando ese
+  aviso a quien puede moverlos.
+- **Seguridad:**
+  - Se retiran los servicios web `block_openaiagent_get_course_config` y
+    `block_openaiagent_save_course_config`. Nada los usaba (la página de
+    configuración guarda con su propio formulario) y ampliaban la superficie de
+    ataque.
+  - Un invitado ya no puede usar un asistente de categoría o de portada por el
+    servicio web de los usuarios con sesión. Ese camino se saltaba tanto los
+    límites de visitante como el límite por usuario. Los visitantes solo entran
+    por el servicio público, que aplica esos límites.
+  - Un asistente de categoría mostrado dentro de un curso respeta el ajuste de
+    Moodle 5.1 «Permitir herramientas de IA» de ese curso también en el servidor,
+    no solo al dibujar el bloque.
+  - Con el catálogo limitado a la categoría, `moodle.get_enrolment_options` ya no
+    describe cursos de fuera de ella, igual que la búsqueda del catálogo.
+- **Código muerto eliminado:** `supportrequest::has_recent_request()`,
+  `tutordocs::has_documents()` y `visitor_guard::today_count()`. La tarea de
+  indexación usa `filetext_store::reset_stale_processing()` en lugar de
+  duplicar su consulta.
 
 ---
 

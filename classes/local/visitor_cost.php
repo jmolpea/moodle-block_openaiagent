@@ -46,8 +46,7 @@ final class visitor_cost {
      * @return float|null
      */
     public static function daily_maximum(int $cap, string $model): ?float {
-        $prices = analytics::get_price_map();
-        $price = $prices[strtolower($model)] ?? null;
+        $price = analytics::price_for($model, analytics::get_price_map());
         if ($price === null) {
             return null;
         }

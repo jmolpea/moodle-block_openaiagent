@@ -72,7 +72,6 @@ final class visitor_guard_test extends \advanced_testcase {
         visitor_guard::record();
         visitor_guard::record();
         $this->assertTrue(visitor_guard::daily_cap_reached());
-        $this->assertSame(5, visitor_guard::today_count());
 
         // Zero means no limit.
         set_config('visitor_rate_limit_count', 0, 'block_openaiagent');

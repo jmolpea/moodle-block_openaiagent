@@ -150,6 +150,11 @@ class orchestrator {
         if (!course_config::core_ai_allows($courseid)) {
             return self::error_result('error_aitoolsdisabled', $conversationid);
         }
+        // A category assistant shown inside a course answers to that course's
+        // switch too, as the block itself does when it draws the chat.
+        if ($platform && $scope->pagecourseid > 0 && !course_config::core_ai_allows($scope->pagecourseid)) {
+            return self::error_result('error_aitoolsdisabled', $conversationid);
+        }
 
         // Guardrails.
         $guard = guardrails::check($rawmessage);

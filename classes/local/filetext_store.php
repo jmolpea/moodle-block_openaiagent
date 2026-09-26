@@ -141,12 +141,12 @@ class filetext_store {
 
         $cutoff = time() - $timeoutseconds;
         $sql = "UPDATE {block_openaiagent_filetext}
-                   SET status = ?
+                   SET status = ?, errormsg = ?
                  WHERE status = ?
                    AND timeindexed > 0
                    AND timeindexed < ?";
 
-        return $DB->execute($sql, [self::STATUS_PENDING, self::STATUS_PROCESSING, $cutoff]);
+        return $DB->execute($sql, [self::STATUS_PENDING, 'stale_processing_reset', self::STATUS_PROCESSING, $cutoff]);
     }
 
     /**

@@ -32,9 +32,8 @@ class block_openaiagent_edit_form extends block_edit_form {
      * @param MoodleQuickForm $mform The form being built.
      */
     protected function specific_definition($mform) {
-        // Check if global API key is configured.
-        $apikey = get_config('block_openaiagent', 'apikey');
-        if (empty($apikey)) {
+        // Check that the configured provider has its API key.
+        if (!\block_openaiagent\ai\factory::is_configured()) {
             $mform->addElement(
                 'static',
                 'apikey_warning',

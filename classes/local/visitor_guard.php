@@ -176,15 +176,6 @@ final class visitor_guard {
     }
 
     /**
-     * Messages counted today.
-     *
-     * @return int
-     */
-    public static function today_count(): int {
-        return (int)(self::cache()->get(self::day_key()) ?: 0);
-    }
-
-    /**
      * Cache key of the current address window.
      *
      * @return string

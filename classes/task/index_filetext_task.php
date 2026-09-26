@@ -61,14 +61,7 @@ class index_filetext_task extends \core\task\scheduled_task {
 
         // Reset stale PROCESSING records back to PENDING so they can be retried.
         // A record is stale if it has been in PROCESSING for more than 10 minutes.
-        $now = time();
-        $staleafter = 10 * 60;
-        $DB->execute(
-            "UPDATE {block_openaiagent_filetext}
-                SET status = ?, errormsg = ?
-              WHERE status = ? AND timeindexed > 0 AND timeindexed < ?",
-            [filetext_store::STATUS_PENDING, 'stale_processing_reset', filetext_store::STATUS_PROCESSING, $now - $staleafter]
-        );
+        filetext_store::reset_stale_processing(10 * MINSECS);
 
         // Process a small batch per run to avoid long cron locks.
         $limit = 5;

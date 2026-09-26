@@ -44,6 +44,70 @@ class analytics {
     const TOOLEVENT = '\\block_openaiagent\\event\\mcp_tool_called';
 
     /**
+     * @var array List prices, USD per one million tokens: [input, output, cached input].
+     *
+     * Every model the settings offer, for every provider, plus retired ones so
+     * the history they left keeps its cost. Checked against the providers'
+     * pricing pages on 23-09-2026. DeepSeek is at its standard (peak) rate; its
+     * off-peak discount is not modelled. Administrators override any line in
+     * the analytics_prices setting; a model with no price is counted in tokens
+     * and left out of the cost rather than guessed at.
+     */
+    const DEFAULT_PRICES = [
+        // OpenAI.
+        'gpt-6-sol' => [2.0, 10.0, 0.2],
+        'gpt-6-luna' => [0.1, 0.5, 0.01],
+        'gpt-5.6-luna' => [0.2, 1.2, 0.02],
+        'gpt-5' => [1.25, 10.0, 0.125],
+        'gpt-5-mini' => [0.25, 2.0, 0.025],
+        'gpt-5-nano' => [0.05, 0.4, 0.005],
+        'gpt-4.1' => [2.0, 8.0, 0.5],
+        'gpt-4.1-mini' => [0.4, 1.6, 0.1],
+        'gpt-4.1-nano' => [0.1, 0.4, 0.025],
+        'gpt-4o' => [2.5, 10.0, 1.25],
+        'gpt-4o-mini' => [0.15, 0.6, 0.075],
+        'o4-mini' => [1.1, 4.4, 0.275],
+        'o3' => [2.0, 8.0, 0.5],
+        'o3-mini' => [1.1, 4.4, 0.55],
+        // Anthropic.
+        'claude-fable-5-1' => [10.0, 50.0, 0.25],
+        'claude-opus-5-5' => [4.0, 20.0, 0.2],
+        'claude-opus-5' => [5.0, 25.0, 0.5],
+        'claude-opus-4-8' => [5.0, 25.0, 0.5],
+        'claude-sonnet-5' => [2.0, 10.0, 0.2],
+        'claude-sonnet-4-5' => [3.0, 15.0, 0.3],
+        'claude-haiku-4-5' => [1.0, 5.0, 0.1],
+        'claude-opus-4-1' => [15.0, 75.0, 1.5],
+        'claude-opus-4' => [15.0, 75.0, 1.5],
+        'claude-sonnet-4' => [3.0, 15.0, 0.3],
+        'claude-3-7-sonnet' => [3.0, 15.0, 0.3],
+        'claude-3-5-sonnet' => [3.0, 15.0, 0.3],
+        'claude-3-5-haiku' => [0.8, 4.0, 0.08],
+        'claude-3-haiku' => [0.25, 1.25, 0.025],
+        // Google Gemini.
+        'gemini-3.8-flash' => [0.75, 3.75, 0.075],
+        'gemini-3.5-flash' => [1.5, 9.0, 0.15],
+        'gemini-3.5-flash-lite' => [0.3, 2.5, 0.3],
+        'gemini-2.5-pro' => [1.25, 10.0, 0.125],
+        'gemini-2.5-flash' => [0.3, 2.5, 0.03],
+        'gemini-2.5-flash-lite' => [0.1, 0.4, 0.01],
+        'gemini-2.0-flash' => [0.1, 0.4, 0.025],
+        'gemini-2.0-flash-lite' => [0.075, 0.3, 0.01875],
+        // DeepSeek. The retired names were billed as Flash until they went.
+        'deepseek-flash' => [0.3, 1.2, 0.006],
+        'deepseek-v4-pro' => [1.32, 3.96, 0.044],
+        'deepseek-chat' => [0.3, 1.2, 0.006],
+        'deepseek-reasoner' => [0.3, 1.2, 0.006],
+    ];
+
+    /**
+     * @var array Announced price changes: model => [first day (UTC, Y-m-d) => new price].
+     */
+    const PRICE_CHANGES = [
+        'gemini-3.8-flash' => ['2027-01-01' => [1.5, 7.5, 0.15]],
+    ];
+
+    /**
      * Return the local-midnight timestamp for the day containing $ts.
      *
      * Day bucketing is done in PHP (not in SQL) so it stays database-portable and
@@ -657,8 +721,12 @@ class analytics {
     public static function get_cost_by_model(int $from, int $to, array $courseids = []): array {
         global $DB;
         [$cwhere, $cparams] = self::course_clause($courseids, 'cf', 's.courseid');
-        $rows = $DB->get_records_sql(
+        // Grouped by day as well as by model, so each day is priced at the rate
+        // that applied that day: a provider changing a price must not rewrite
+        // what the months before it cost.
+        $rs = $DB->get_recordset_sql(
             "SELECT s.model AS model,
+                    s.daterecorded AS daterecorded,
                     SUM(s.prompttokens) AS input,
                     SUM(s.cachedtokens) AS cached,
                     SUM(s.completiontokens) AS output,
@@ -666,33 +734,48 @@ class analytics {
                FROM {" . self::MSGSTATS . "} s
               WHERE s.daterecorded >= :from AND s.daterecorded <= :to
                 AND s.totaltokens > 0" . $cwhere . "
-              GROUP BY s.model",
+              GROUP BY s.model, s.daterecorded",
             ['from' => $from, 'to' => $to] + $cparams
         );
 
-        $prices = self::get_price_map();
-        $out = [];
-        foreach ($rows as $r) {
+        $bymodel = [];
+        $maps = [];
+        foreach ($rs as $r) {
             $model = trim((string)$r->model) !== '' ? (string)$r->model : 'unknown';
+            $day = (int)$r->daterecorded;
+            $maps[$day] = $maps[$day] ?? self::get_price_map($day);
             $input = (int)$r->input;
             $cached = min((int)$r->cached, $input);
             $output = (int)$r->output;
-            $price = $prices[strtolower($model)] ?? null;
-            $cost = $price
-                ? (($input - $cached) / 1000000 * $price[0])
-                    + ($cached / 1000000 * $price[2])
-                    + ($output / 1000000 * $price[1])
-                : 0.0;
-            $out[] = (object)[
-                'model' => $model,
-                'input' => $input,
-                'cached' => $cached,
-                'output' => $output,
-                'total' => (int)$r->total,
-                'cost' => $cost,
-                'haspricing' => $price !== null,
-            ];
+            $price = self::price_for($model, $maps[$day]);
+
+            if (!isset($bymodel[$model])) {
+                $bymodel[$model] = (object)[
+                    'model' => $model,
+                    'input' => 0,
+                    'cached' => 0,
+                    'output' => 0,
+                    'total' => 0,
+                    'cost' => 0.0,
+                    'haspricing' => true,
+                ];
+            }
+            $row = $bymodel[$model];
+            $row->input += $input;
+            $row->cached += $cached;
+            $row->output += $output;
+            $row->total += (int)$r->total;
+            if ($price === null) {
+                $row->haspricing = false;
+                continue;
+            }
+            $row->cost += (($input - $cached) / 1000000 * $price[0])
+                + ($cached / 1000000 * $price[2])
+                + ($output / 1000000 * $price[1]);
         }
+        $rs->close();
+
+        $out = array_values($bymodel);
         usort($out, fn($a, $b) => $b->total <=> $a->total);
         return $out;
     }
@@ -948,32 +1031,28 @@ class analytics {
      * cached input at the full input price: the admin stated what they wanted
      * charged, so no discount is invented on their behalf.
      *
+     * Lines starting with # are comments.
+     *
+     * @param int|null $at Moment the prices apply to (null = now). Only the
+     *     built-in defaults change over time; a price an administrator set
+     *     applies to every date.
      * @return array Lowercased model => [input, output, cachedinput].
      */
-    public static function get_price_map(): array {
-        // Public list prices (USD per 1M tokens) as defaults, including the
-        // cached-input rate. Prices change: admins override per model via the
-        // plugin setting, and a model with no entry is counted in tokens but
-        // excluded from the cost estimate rather than guessed at.
-        $defaults = [
-            'gpt-6-sol' => [2.0, 10.0, 0.2],
-            'gpt-6-luna' => [0.1, 0.5, 0.01],
-            'gpt-5.6-luna' => [0.2, 1.2, 0.02],
-            'gpt-5' => [1.25, 10.0, 0.125],
-            'gpt-5-mini' => [0.25, 2.0, 0.025],
-            'gpt-5-nano' => [0.05, 0.4, 0.005],
-            'gpt-4.1' => [2.0, 8.0, 0.5],
-            'gpt-4.1-mini' => [0.4, 1.6, 0.1],
-            'gpt-4.1-nano' => [0.1, 0.4, 0.025],
-            'gpt-4o' => [2.5, 10.0, 1.25],
-            'gpt-4o-mini' => [0.15, 0.6, 0.075],
-            'o4-mini' => [1.1, 4.4, 0.275],
-        ];
+    public static function get_price_map(?int $at = null): array {
+        $at = $at ?? time();
+        $defaults = self::DEFAULT_PRICES;
+        foreach (self::PRICE_CHANGES as $model => $changes) {
+            foreach ($changes as $date => $price) {
+                if ($at >= strtotime($date . ' 00:00:00 UTC')) {
+                    $defaults[$model] = $price;
+                }
+            }
+        }
 
         $raw = (string)get_config('block_openaiagent', 'analytics_prices');
         foreach (preg_split('/\r\n|\r|\n/', $raw) as $line) {
             $line = trim($line);
-            if ($line === '' || strpos($line, '|') === false) {
+            if ($line === '' || $line[0] === '#' || strpos($line, '|') === false) {
                 continue;
             }
             $parts = array_map('trim', explode('|', $line));
@@ -988,6 +1067,28 @@ class analytics {
             ];
         }
         return $defaults;
+    }
+
+    /**
+     * The price of a model, tolerating the dated ids providers also accept.
+     *
+     * A model override may name a snapshot ("claude-haiku-4-5-20251001",
+     * "gpt-4.1-2025-04-14"); it costs what its base id costs.
+     *
+     * @param string $model Model id as recorded.
+     * @param array $prices Map from {@see self::get_price_map()}.
+     * @return array|null [input, output, cachedinput], or null when unknown.
+     */
+    public static function price_for(string $model, array $prices): ?array {
+        $model = strtolower(trim($model));
+        if (strpos($model, 'models/') === 0) {
+            $model = substr($model, 7);
+        }
+        if (isset($prices[$model])) {
+            return $prices[$model];
+        }
+        $base = preg_replace('/-(\d{8}|\d{4}-\d{2}-\d{2})$/', '', $model);
+        return $prices[$base] ?? null;
     }
 
     /**
