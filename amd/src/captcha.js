@@ -103,11 +103,11 @@ define([], function() {
     var recaptchaToken = function(config) {
         var src = 'https://www.google.com/recaptcha/api.js?render=' + encodeURIComponent(config.sitekey);
         return loadScript(src).then(function() {
-            return new Promise(function(resolve, reject) {
-                window.grecaptcha.ready(function() {
-                    window.grecaptcha.execute(config.sitekey, {action: config.action}).then(resolve, reject);
-                });
+            return new Promise(function(resolve) {
+                window.grecaptcha.ready(resolve);
             });
+        }).then(function() {
+            return window.grecaptcha.execute(config.sitekey, {action: config.action});
         });
     };
 

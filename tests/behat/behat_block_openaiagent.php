@@ -67,8 +67,12 @@ class behat_block_openaiagent extends behat_base {
 
         $categoryid = $DB->get_field('course_categories', 'id', ['idnumber' => $idnumber], MUST_EXIST);
         $context = \context_coursecat::instance($categoryid);
-        $block = $DB->get_record('block_instances', ['blockname' => 'openaiagent', 'parentcontextid' => $context->id],
-            '*', MUST_EXIST);
+        $block = $DB->get_record(
+            'block_instances',
+            ['blockname' => 'openaiagent', 'parentcontextid' => $context->id],
+            '*',
+            MUST_EXIST
+        );
         $config = $block->configdata ? unserialize_object(base64_decode($block->configdata)) : new \stdClass();
         $config->visitors = $state === 'open' ? 1 : 0;
         $DB->set_field('block_instances', 'configdata', base64_encode(serialize($config)), ['id' => $block->id]);
