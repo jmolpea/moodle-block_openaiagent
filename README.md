@@ -33,9 +33,9 @@ When the period ends, request a site licence key at **julio@rsmax.es**.
 
 ## Requirements
 
-- Moodle 4.5 LTS, 5.0, 5.1 or 5.2
+- Moodle 4.5 LTS, 5.0, 5.1, 5.2 or 5.3
 - The PHP version your Moodle requires (8.1+ for 4.5, 8.2+ for 5.0 and 5.1,
-  8.3+ for 5.2) with the `openssl` and `curl` extensions
+  8.3+ for 5.2 and 5.3) with the `openssl` and `curl` extensions
 - An API key from at least one supported AI provider — **you bring your own and
   pay your provider directly**
 - Working outbound email, if you use support escalation

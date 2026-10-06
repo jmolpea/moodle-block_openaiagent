@@ -419,6 +419,21 @@
     color: #3730a3;
 }
 
+/* The bubble keeps its light surface in Boost's dark mode (Moodle 5.3), so the
+   elements whose text colour the theme sets must be pinned to it as well. */
+
+.openaiagent-message-assistant .openaiagent-message-content blockquote {
+    color: #475569;
+}
+
+.openaiagent-message-assistant .openaiagent-message-content code {
+    color: #be185d;
+}
+
+.openaiagent-message-assistant .openaiagent-message-content pre code {
+    color: #1e293b;
+}
+
 .openaiagent-message-content code {
     font-size: 13px;
     background: rgba(99, 102, 241, 0.08);
@@ -640,19 +655,20 @@
     max-width: 1240px;
 }
 
-@media (prefers-color-scheme: dark) {
-    .oaa-dash {
-        --surface: #1c1c1a;
-        --plane: #131312;
-        --ink: #f4f3ee;
-        --ink-2: #c3c2b7;
-        --muted: #9a988f;
-        --grid: #2c2c2a;
-        --border: rgba(255, 255, 255, 0.12);
-        --series-1: #3987e5;
-        --series-2: #199e70;
-        --series-3: #c98500;
-    }
+/* Follows the colour mode chosen in Moodle (Boost, 5.3+) rather than the one
+   of the operating system, so the panel never disagrees with the page. */
+
+[data-bs-theme="dark"] .oaa-dash {
+    --surface: #1c1c1a;
+    --plane: #131312;
+    --ink: #f4f3ee;
+    --ink-2: #c3c2b7;
+    --muted: #9a988f;
+    --grid: #2c2c2a;
+    --border: rgba(255, 255, 255, 0.12);
+    --series-1: #3987e5;
+    --series-2: #199e70;
+    --series-3: #c98500;
 }
 
 .oaa-dash a {

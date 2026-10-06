@@ -72,3 +72,19 @@ Feature: Place the Smart Tutor & Support AI block in a course
     When I visit "/admin/settings.php?section=blocksettingopenaiagent"
     Then I should see "Smart Tutor & Support AI"
     And I should see "License key"
+
+  # The only scenario that runs a browser: a chat window that is on the page but
+  # cut off by the block drawer (Moodle 5.3) passes every text assertion above.
+  @javascript
+  Scenario: The chat window opens whole from the block drawer and can be typed in
+    Given the following config values are set as admin:
+      | enabled | 1        | block_openaiagent |
+      | apikey  | test-key | block_openaiagent |
+    And I log in as "student1"
+    And I am on "Project Managing" course homepage
+    When I click on "Open Chat" "button" in the "Smart Tutor & Support AI" "block"
+    And I click on "Type your message..." "field"
+    And I set the field "Type your message..." to "Hello"
+    Then the "Send" "button" should be enabled
+    And I click on "Close Chat" "button"
+    And "Type your message..." "field" should not be visible

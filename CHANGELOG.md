@@ -7,6 +7,33 @@ usa [Versionado Semántico](https://semver.org/lang/es/).
 
 ---
 
+## [4.20.1] — 2026-10-06
+
+Compatibilidad con Moodle 5.3.
+
+### Corregido
+
+- **La ventana del chat salía recortada en Moodle 5.3.** El cajón de bloques de
+  Boost pasa a recortarse con `clip-path`, que oculta también lo que hay dentro
+  aunque esté fijado a la pantalla: en escritorio solo se veía un trozo de la
+  ventana y no se llegaba al cuadro de texto. La ventana cuelga ahora de la
+  página y no del bloque, de modo que se ve entera esté donde esté el bloque.
+- **Citas y código ilegibles con el modo oscuro de Boost** (experimental en
+  Moodle 5.3). Las respuestas del asistente conservan su fondo claro, pero las
+  citas y el código en línea tomaban el color de texto del tema.
+
+### Cambiado
+
+- **Moodle 5.3 pasa a estar soportado** (`supported = [405, 503]`) y entra en la
+  matriz de CI con PHP 8.3 y 8.4.
+- **El panel de uso sigue el modo de color elegido en Moodle** y no el del
+  sistema operativo. En las versiones sin modo oscuro se muestra siempre en claro.
+
+### Pruebas
+
+- Escenario Behat con JavaScript que abre el chat desde el cajón de bloques y
+  escribe en él: es el que detecta una ventana recortada.
+
 ## [4.20.0] — 2026-09-27
 
 Certificados e insignias en el asistente de categoría y de portada.

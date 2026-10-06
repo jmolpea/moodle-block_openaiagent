@@ -77,6 +77,12 @@ define([
         }
         this.triggerBtn = document.getElementById('openaiagent-trigger-' + this.blockId);
         this.modal = document.getElementById('openaiagent-modal-' + this.blockId);
+        // The window is fixed to the viewport, so it must not stay inside the
+        // block: from Moodle 5.3 Boost clips the block drawer with clip-path,
+        // which cuts off fixed descendants too and leaves the input out of reach.
+        if (this.modal && this.modal.parentNode !== document.body) {
+            document.body.appendChild(this.modal);
+        }
         this.closeBtn = this.modal ? this.modal.querySelector('.openaiagent-close') : null;
         this.newChatBtn = this.modal ? this.modal.querySelector('.openaiagent-new-chat') : null;
         this.messagesContainer = document.getElementById('openaiagent-messages-' + this.blockId);
