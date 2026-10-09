@@ -7,6 +7,25 @@ usa [Versionado Semántico](https://semver.org/lang/es/).
 
 ---
 
+## [4.20.2] — 2026-10-09
+
+### Corregido
+
+- **El asistente daba por pendientes las actividades aprobadas.** La herramienta
+  `moodle.get_course_progress` solo contaba como completadas las actividades en
+  estado «Concluido». Las que se completan al alcanzar la nota de aprobación
+  (cuestionarios, lecciones, tareas con nota mínima) se guardan en Moodle con un
+  estado distinto, «Concluido (alcanzó la nota de aprobación)», y aparecían como
+  pendientes. A un participante con todo el curso aprobado se le decía que le
+  faltaban actividades para obtener el certificado, mientras el porcentaje, que
+  calcula Moodle, marcaba 100 %. El mismo recuento erróneo llegaba a
+  `moodle.get_user_grades_summary` (`pending_activities_count`). Afectaba a todas
+  las versiones anteriores.
+
+### Pruebas
+
+- Prueba unitaria con una actividad en cada estado de finalización.
+
 ## [4.20.1] — 2026-10-06
 
 Compatibilidad con Moodle 5.3.

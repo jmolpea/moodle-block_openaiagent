@@ -257,6 +257,75 @@ final class tool_registry_test extends \advanced_testcase {
     }
 
     /**
+     * An activity completed by reaching its passing grade counts as completed.
+     *
+     * Moodle stores it as COMPLETION_COMPLETE_PASS rather than COMPLETION_COMPLETE.
+     * The tool only accepted the latter, so a participant who had passed every
+     * quiz of a course was told that all of them were still pending and that the
+     * certificate could not be issued, next to a core percentage of 100.
+     */
+    public function test_progress_counts_passed_activities_as_completed(): void {
+        global $CFG;
+        require_once($CFG->libdir . '/completionlib.php');
+
+        $course = $this->getDataGenerator()->create_course(['enablecompletion' => 1]);
+        $this->getDataGenerator()->enrol_user($this->student->id, $course->id, 'student');
+
+        $states = [
+            'complete' => COMPLETION_COMPLETE,
+            'passed' => COMPLETION_COMPLETE_PASS,
+            'failed' => COMPLETION_COMPLETE_FAIL,
+            'untouched' => null,
+        ];
+        $cmids = [];
+        $completion = new \completion_info($course);
+        foreach ($states as $handle => $state) {
+            $module = $this->getDataGenerator()->create_module(
+                'page',
+                ['course' => $course->id, 'name' => $handle],
+                ['completion' => COMPLETION_TRACKING_MANUAL]
+            );
+            $cmids[$handle] = (int)$module->cmid;
+            if ($state === null) {
+                continue;
+            }
+            $cm = get_fast_modinfo($course)->get_cm($module->cmid);
+            $current = $completion->get_data($cm, false, $this->student->id);
+            $current->completionstate = $state;
+            $current->timemodified = time();
+            $completion->internal_set_data($cm, $current);
+        }
+
+        $this->setUser($this->student);
+        $result = tool_registry::call(
+            'moodle.get_course_progress',
+            [],
+            (int)$this->student->id,
+            (int)$course->id
+        );
+
+        $this->assertSame(4, $result['total_count']);
+        $this->assertSame(2, $result['completed_count']);
+        $this->assertEqualsCanonicalizing(
+            [$cmids['complete'], $cmids['passed']],
+            array_column($result['completed'], 'cmid')
+        );
+        $this->assertEqualsCanonicalizing(
+            [$cmids['failed'], $cmids['untouched']],
+            array_column($result['pending'], 'cmid')
+        );
+
+        // The grades summary reuses the same count.
+        $grades = tool_registry::call(
+            'moodle.get_user_grades_summary',
+            [],
+            (int)$this->student->id,
+            (int)$course->id
+        );
+        $this->assertSame(2, $grades['pending_activities_count']);
+    }
+
+    /**
      * An activity the teacher hid stays hidden: the tolerant matching must not
      * become a way to enumerate content the participant is not meant to see.
      */

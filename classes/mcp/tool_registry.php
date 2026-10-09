@@ -978,9 +978,16 @@ class tool_registry {
             $totaltrackable++;
 
             // Completion data can throw in edge cases; treat those items as pending.
+            // An activity completed by reaching its passing grade is stored as
+            // COMPLETION_COMPLETE_PASS, not COMPLETION_COMPLETE: both are done.
+            // COMPLETION_COMPLETE_FAIL stays pending, as in core's own percentage.
             try {
                 $cdata = $completion->get_data($cm, false, $targetuserid);
-                $iscomplete = (!empty($cdata) && (int)$cdata->completionstate === COMPLETION_COMPLETE);
+                $iscomplete = !empty($cdata) && in_array(
+                    (int)$cdata->completionstate,
+                    [COMPLETION_COMPLETE, COMPLETION_COMPLETE_PASS],
+                    true
+                );
             } catch (\Throwable $e) {
                 $iscomplete = false;
             }
